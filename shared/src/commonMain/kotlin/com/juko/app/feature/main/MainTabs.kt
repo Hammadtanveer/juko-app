@@ -1,23 +1,21 @@
 package com.juko.app.feature.main
 
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ChatBubble
-import androidx.compose.material.icons.filled.DirectionsCar
-import androidx.compose.material.icons.filled.Person
-import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.outlined.*
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.graphics.vector.rememberVectorPainter
+import cafe.adriel.voyager.navigator.Navigator
 import cafe.adriel.voyager.navigator.tab.Tab
 import cafe.adriel.voyager.navigator.tab.TabOptions
 import com.juko.app.feature.home.presentation.HomeScreen
+import com.juko.app.feature.postride.presentation.PostRideRouteScreen
 
 internal object SearchTab : Tab {
     override val options: TabOptions
         @Composable
         get() {
-            val icon = rememberVectorPainter(Icons.Default.Search)
+            val icon = rememberVectorPainter(Icons.Outlined.Search)
             return remember {
                 TabOptions(
                     index = 0u,
@@ -49,7 +47,7 @@ internal object PublishTab : Tab {
 
     @Composable
     override fun Content() {
-        // Placeholder
+        Navigator(PostRideRouteScreen())
     }
 }
 
@@ -69,7 +67,7 @@ internal object YourRidesTab : Tab {
 
     @Composable
     override fun Content() {
-        // Placeholder
+        com.juko.app.feature.rides.presentation.MyRidesScreen().Content()
     }
 }
 

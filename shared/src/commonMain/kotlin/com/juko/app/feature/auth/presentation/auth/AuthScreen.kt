@@ -38,7 +38,6 @@ import com.juko.app.feature.auth.presentation.signup.SignupEvent
 import com.juko.app.feature.auth.presentation.signup.SignupSideEffect
 import com.juko.app.feature.auth.presentation.signup.SignupState
 import com.juko.app.feature.auth.presentation.signup.SignupViewModel
-import com.juko.app.feature.home.presentation.HomeScreen
 import com.juko.app.feature.main.MainContainerScreen
 
 class AuthScreen : Screen {

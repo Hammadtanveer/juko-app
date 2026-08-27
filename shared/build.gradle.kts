@@ -55,6 +55,7 @@ kotlin {
             implementation(libs.androidx.lifecycle.viewmodelCompose)
             implementation(libs.androidx.lifecycle.runtimeCompose)
             implementation("io.coil-kt.coil3:coil-compose:3.0.4")
+            implementation(libs.kotlinx.datetime)
             
             // Voyager
             implementation(libs.voyager.navigator)

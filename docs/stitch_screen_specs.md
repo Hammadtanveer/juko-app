@@ -89,19 +89,42 @@ This document maps all approved Stitch screens to their exact Compose Multiplatf
 
 ---
 
-## 3. Driver & Ride Management Flow
-
 ### 3.1 Post a Ride - Route & Pricing (`PostRideRouteScreen.kt`)
 - **Stitch Title**: `Post a Ride - Route & Pricing (Juko)`
 - **Screen ID**: `3acaeb0d0d5b42af8e78cd045bc1ead2`
 - **Path**: `com.juko.app.feature.postride.presentation.PostRideRouteScreen`
 - **Visual Structure**:
-  - TopBar: `JukoTopBar` with title "Post a Ride".
-  - Step Progress Bar: Step 1 of 2.
-  - Route Card: Pickup Location, Dropoff Location, Departure Date & Time.
-  - Pricing Card: Price per seat slider / input with suggested pricing range (`₹450 - ₹650`).
-  - Available Seats: Number counter `[- 3 +]`.
-  - Action: `JukoButton` ("Next: Ride Details").
+  - **Top Navigation Bar**:
+    - Back arrow icon (`Icons.AutoMirrored.Outlined.ArrowBack`) + "JUKO" brand title on left.
+    - Notification bell button on right.
+  - **Sticky Step Progress Indicator** (Surface Container Lowest `#FFFFFF`, elevation):
+    - Step 1: Active Primary Blue pill (`1`) + `ROUTE & PRICING` in bold primary.
+    - Connecting divider line (`#C3C6D6`).
+    - Step 2: Muted circle (`2`) + `RIDE DETAILS` in muted grey.
+  - **Section 1: Route Details Timeline Card** (White `#FFFFFF`, 16dp rounded, elevation):
+    - Title: "Route Details" (`title-sm` 18sp bold).
+    - Vertical connecting timeline line (`#C3C6D6/30`).
+    - **START**: Filled blue circle with `trip_origin` icon + START label + City text (e.g., "Mumbai").
+    - **Intermediate Stops (Dynamic)**: High-container circle with inner dot + STOP label + City text (e.g., "Lonavala", "Khandala") + Delete (close `X`) icon.
+    - **END**: Green filled circle with `location_on` pin + END label + City text (e.g., "Pune").
+    - **+ Add Stop Button**: Full-width light container button with `+` icon + "Add Stop".
+  - **Section 2: Schedule Card** (White `#FFFFFF`, 16dp rounded):
+    - Title: "Schedule" (`title-sm` 18sp bold).
+    - Row 1: `DEPARTURE DATE` (with calendar icon) + `TIME` (with clock schedule icon).
+    - Row 2: `ARRIVAL DATE` (with calendar icon) + `TIME` (with clock schedule icon).
+    - Journey Duration Badge: Timer icon + "Approx. journey time: 3h 30m" in green/tertiary tone (`#004E32`).
+  - **Section 3: Route Pricing Breakdown**:
+    - Header: "Route Pricing" + "PRICE PER SEAT" badge.
+    - Segmented price cards:
+      - **Segment 1**: "Mumbai → Lonavala" + Counter `[- ₹250 +]`.
+      - **Segment 2**: "Lonavala → Khandala" + Counter `[- ₹80 +]`.
+      - **Segment 3**: "Khandala → Pune" + Counter `[- ₹150 +]`.
+  - **Section 4: Info Card**:
+    - Blue left-accent border + Info icon + "How passenger prices work".
+    - Example combined trips: "Mumbai to Pune: ₹480", "Lonavala to Pune: ₹230".
+  - **Bottom Fixed Action Bar**:
+    - Primary Button: "Continue to Ride Details" (`#003D9B` / `#0052CC`, 48dp height, rounded-lg).
+    - Secondary Button: "Save as Draft" (Ghost transparent button with primary blue text).
 
 ---
 

@@ -3,6 +3,7 @@ package com.juko.app.feature.home.presentation
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
@@ -12,6 +13,11 @@ import androidx.compose.material.icons.automirrored.outlined.KeyboardArrowRight
 import androidx.compose.material.icons.outlined.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -23,6 +29,7 @@ import androidx.compose.ui.unit.sp
 import cafe.adriel.voyager.core.screen.Screen
 import com.juko.app.core.presentation.components.JukoButton
 import com.juko.app.core.presentation.theme.LocalSpacing
+import kotlinx.datetime.toLocalDateTime
 
 class HomeScreen : Screen {
     @Composable
@@ -121,10 +128,40 @@ private fun HeroSection() {
         )
     }
 }
-
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun SearchCard() {
     val spacing = LocalSpacing.current
+    var fromText by remember { mutableStateOf("") }
+    var toText by remember { mutableStateOf("") }
+    var dateText by remember { mutableStateOf("Today") }
+    var passengers by remember { mutableStateOf(1) }
+
+    var showDatePicker by remember { mutableStateOf(false) }
+    var showPassengerDropdown by remember { mutableStateOf(false) }
+    val datePickerState = rememberDatePickerState()
+
+    if (showDatePicker) {
+        DatePickerDialog(
+            onDismissRequest = { showDatePicker = false },
+            confirmButton = {
+                TextButton(onClick = {
+                    showDatePicker = false
+                    datePickerState.selectedDateMillis?.let { millis ->
+                        val instant = kotlinx.datetime.Instant.fromEpochMilliseconds(millis)
+                        val localDate = instant.toLocalDateTime(kotlinx.datetime.TimeZone.currentSystemDefault()).date
+                        dateText = "${localDate.dayOfMonth} ${localDate.month.name.take(3).lowercase().replaceFirstChar { it.uppercase() }} ${localDate.year}"
+                    }
+                }) { Text("OK") }
+            },
+            dismissButton = {
+                TextButton(onClick = { showDatePicker = false }) { Text("Cancel") }
+            }
+        ) {
+            DatePicker(state = datePickerState)
+        }
+    }
+
     Surface(
         modifier = Modifier
             .fillMaxWidth()
@@ -137,31 +174,54 @@ private fun SearchCard() {
             SearchInputRow(
                 label = "FROM",
                 icon = Icons.Outlined.TripOrigin,
-                value = "City, station, place"
+                value = fromText,
+                onValueChange = { fromText = it },
+                placeholder = "City, station, place"
             )
             HorizontalDivider(modifier = Modifier.padding(vertical = spacing.md), color = MaterialTheme.colorScheme.outlineVariant)
             SearchInputRow(
                 label = "TO",
                 icon = Icons.Outlined.LocationOn,
-                value = "City, station, place"
+                value = toText,
+                onValueChange = { toText = it },
+                placeholder = "City, station, place"
             )
             HorizontalDivider(modifier = Modifier.padding(vertical = spacing.md), color = MaterialTheme.colorScheme.outlineVariant)
             
             Row(modifier = Modifier.fillMaxWidth()) {
                 Box(modifier = Modifier.weight(1f)) {
-                    SearchInputRow(
+                    SearchClickableRow(
                         label = "DATE",
                         icon = Icons.Outlined.CalendarToday,
-                        value = "Today"
+                        value = dateText,
+                        onClick = { showDatePicker = true },
+                        placeholder = "Select date"
                     )
                 }
                 Box(modifier = Modifier.width(1.dp).height(40.dp).background(MaterialTheme.colorScheme.outlineVariant).align(Alignment.CenterVertically))
-                Box(modifier = Modifier.weight(1f)) {
-                    SearchInputRow(
+                Box(modifier = Modifier.weight(1f).padding(start = spacing.sm)) {
+                    SearchClickableRow(
                         label = "PASSENGERS",
                         icon = Icons.Outlined.Person,
-                        value = "1 passenger"
+                        value = if (passengers == 1) "1 passenger" else "$passengers passengers",
+                        onClick = { showPassengerDropdown = true },
+                        placeholder = "1 passenger"
                     )
+                    
+                    DropdownMenu(
+                        expanded = showPassengerDropdown,
+                        onDismissRequest = { showPassengerDropdown = false }
+                    ) {
+                        (1..8).forEach { count ->
+                            DropdownMenuItem(
+                                text = { Text(if (count == 1) "1 passenger" else "$count passengers") },
+                                onClick = {
+                                    passengers = count
+                                    showPassengerDropdown = false
+                                }
+                            )
+                        }
+                    }
                 }
             }
             
@@ -169,7 +229,7 @@ private fun SearchCard() {
             
             JukoButton(
                 text = "Search",
-                onClick = { /* TODO */ },
+                onClick = { /* TODO: Execute search */ },
                 modifier = Modifier.fillMaxWidth().height(48.dp),
                 shape = RoundedCornerShape(8.dp),
                 leadingIcon = {
@@ -184,7 +244,9 @@ private fun SearchCard() {
 private fun SearchInputRow(
     label: String,
     icon: ImageVector,
-    value: String
+    value: String,
+    onValueChange: (String) -> Unit,
+    placeholder: String
 ) {
     val spacing = LocalSpacing.current
     Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
@@ -202,10 +264,61 @@ private fun SearchInputRow(
                 modifier = Modifier.size(20.dp)
             )
             Spacer(modifier = Modifier.width(spacing.sm))
+            BasicTextField(
+                value = value,
+                onValueChange = onValueChange,
+                textStyle = MaterialTheme.typography.bodyLarge.copy(
+                    color = MaterialTheme.colorScheme.onSurface
+                ),
+                decorationBox = { innerTextField ->
+                    Box {
+                        if (value.isEmpty()) {
+                            Text(
+                                text = placeholder,
+                                style = MaterialTheme.typography.bodyLarge,
+                                color = MaterialTheme.colorScheme.outlineVariant
+                            )
+                        }
+                        innerTextField()
+                    }
+                },
+                modifier = Modifier.fillMaxWidth()
+            )
+        }
+    }
+}
+
+@Composable
+private fun SearchClickableRow(
+    label: String,
+    icon: ImageVector,
+    value: String,
+    onClick: () -> Unit,
+    placeholder: String
+) {
+    val spacing = LocalSpacing.current
+    Column(
+        verticalArrangement = Arrangement.spacedBy(4.dp), 
+        modifier = Modifier.fillMaxWidth().clickable { onClick() }.padding(vertical = 4.dp)
+    ) {
+        Text(
+            text = label,
+            style = MaterialTheme.typography.labelSmall,
+            color = MaterialTheme.colorScheme.secondary,
+            fontWeight = FontWeight.Bold
+        )
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Icon(
+                imageVector = icon,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.primary,
+                modifier = Modifier.size(20.dp)
+            )
+            Spacer(modifier = Modifier.width(spacing.sm))
             Text(
-                text = value,
+                text = if (value.isEmpty()) placeholder else value,
                 style = MaterialTheme.typography.bodyLarge,
-                color = if (value.contains("City")) MaterialTheme.colorScheme.outlineVariant else MaterialTheme.colorScheme.onSurface
+                color = if (value.isEmpty()) MaterialTheme.colorScheme.outlineVariant else MaterialTheme.colorScheme.onSurface
             )
         }
     }

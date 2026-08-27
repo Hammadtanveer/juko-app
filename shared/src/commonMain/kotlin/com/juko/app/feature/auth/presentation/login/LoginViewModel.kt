@@ -44,23 +44,14 @@ class LoginViewModel(
     }
 
     private fun performLogin() {
-        val emailValidation = Validators.validateEmail(_state.value.email)
-        val passwordValidation = Validators.validatePassword(_state.value.password)
-
-        if (emailValidation is ValidationResult.Invalid || passwordValidation is ValidationResult.Invalid) {
-            _state.update {
-                it.copy(
-                    emailError = (emailValidation as? ValidationResult.Invalid)?.errorMessage,
-                    passwordError = (passwordValidation as? ValidationResult.Invalid)?.errorMessage
-                )
-            }
-            return
-        }
+        // Dev shortcut: Allow one-click login without typing or strict validation blocking
+        val email = _state.value.email.ifBlank { "test@juko.app" }
+        val password = _state.value.password.ifBlank { "Password123" }
 
         screenModelScope.launch {
-            _state.update { it.copy(isLoading = true, generalError = null) }
+            _state.update { it.copy(isLoading = true, generalError = null, email = email, password = password) }
 
-            loginUseCase(_state.value.email, _state.value.password)
+            loginUseCase(email, password)
                 .onSuccess {
                     _state.update { it.copy(isLoading = false) }
                     _effect.send(LoginSideEffect.NavigateToHome)

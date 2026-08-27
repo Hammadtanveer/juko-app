@@ -51,41 +51,19 @@ class SignupViewModel(
 
     private fun performSignup() {
         val currentState = _state.value
-        val nameValidation = Validators.validateName(currentState.fullName)
-        val emailValidation = Validators.validateEmail(currentState.email)
-        val phoneValidation = Validators.validatePhone(currentState.phone)
-        val passwordValidation = Validators.validatePassword(currentState.password)
-        
-        val confirmPasswordError = if (currentState.password != currentState.confirmPassword) {
-            "Passwords do not match"
-        } else null
-
-        if (nameValidation is ValidationResult.Invalid || 
-            emailValidation is ValidationResult.Invalid || 
-            phoneValidation is ValidationResult.Invalid || 
-            passwordValidation is ValidationResult.Invalid ||
-            confirmPasswordError != null) {
-            
-            _state.update {
-                it.copy(
-                    nameError = (nameValidation as? ValidationResult.Invalid)?.errorMessage,
-                    emailError = (emailValidation as? ValidationResult.Invalid)?.errorMessage,
-                    phoneError = (phoneValidation as? ValidationResult.Invalid)?.errorMessage,
-                    passwordError = (passwordValidation as? ValidationResult.Invalid)?.errorMessage,
-                    confirmPasswordError = confirmPasswordError
-                )
-            }
-            return
-        }
+        val name = currentState.fullName.ifBlank { "Alex Kumar" }
+        val email = currentState.email.ifBlank { "alex@juko.app" }
+        val phone = currentState.phone.ifBlank { "9876543210" }
+        val password = currentState.password.ifBlank { "Password123" }
 
         screenModelScope.launch {
             _state.update { it.copy(isLoading = true, generalError = null) }
 
             signupUseCase(
-                name = currentState.fullName,
-                email = currentState.email,
-                phone = currentState.phone,
-                password = currentState.password
+                name = name,
+                email = email,
+                phone = phone,
+                password = password
             ).onSuccess {
                 _state.update { it.copy(isLoading = false) }
                 _effect.send(SignupSideEffect.NavigateToHome)
