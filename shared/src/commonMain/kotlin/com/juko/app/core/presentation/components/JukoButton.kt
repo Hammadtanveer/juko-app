@@ -1,10 +1,6 @@
 package com.juko.app.core.presentation.components
 
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.heightIn
-import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.*
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
@@ -13,6 +9,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.text.style.TextOverflow
 import com.juko.app.core.presentation.theme.LocalSpacing
 
@@ -28,7 +25,9 @@ fun JukoButton(
     modifier: Modifier = Modifier,
     enabled: Boolean = true,
     isLoading: Boolean = false,
-    color: JukoButtonColor = JukoButtonColor.Primary
+    color: JukoButtonColor = JukoButtonColor.Primary,
+    shape: Shape = MaterialTheme.shapes.medium,
+    leadingIcon: @Composable (() -> Unit)? = null
 ) {
     val spacing = LocalSpacing.current
     val containerColor = when (color) {
@@ -48,7 +47,7 @@ fun JukoButton(
             disabledContainerColor = containerColor.copy(alpha = 0.5f),
             disabledContentColor = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.7f)
         ),
-        shape = MaterialTheme.shapes.medium
+        shape = shape
     ) {
         if (isLoading) {
             CircularProgressIndicator(
@@ -56,12 +55,21 @@ fun JukoButton(
                 strokeWidth = spacing.base
             )
         } else {
-            Text(
-                text = text,
-                style = MaterialTheme.typography.bodyLarge,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis
-            )
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.Center
+            ) {
+                if (leadingIcon != null) {
+                    leadingIcon()
+                    Spacer(modifier = Modifier.width(spacing.xs))
+                }
+                Text(
+                    text = text,
+                    style = MaterialTheme.typography.bodyLarge,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+            }
         }
     }
 }

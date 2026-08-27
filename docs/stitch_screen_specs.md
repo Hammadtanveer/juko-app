@@ -60,15 +60,32 @@ This document maps all approved Stitch screens to their exact Compose Multiplatf
 - **Screen ID**: `c842c1d166974be49aa9e05bc08408c5`
 - **Path**: `com.juko.app.feature.home.presentation.HomeScreen`
 - **Visual Structure**:
-  - Top Bar: JUKO brand mark left, Notification bell + User Avatar right.
-  - Hero Search Card: White elevated card (16dp radius) with:
-    - "Leaving from" input field with location icon.
-    - "Going to" input field with destination pin icon.
-    - Date picker row + Seat count selector (1-4 seats).
-    - `Search Rides` Primary Button (`#0052CC`).
-  - Quick Shortcuts: "Publish a Ride" card banner (for drivers) with green accent.
-  - Recent / Popular Routes horizontal carousel.
-  - Bottom Bar: 4-tab Persistent Navigation (`JukoBottomBar`: Search, Bookings, Inbox, Profile).
+  - **Top App Header**:
+    - Left: Menu icon (`Icons.Outlined.Menu`) + "Juko" logo title.
+    - Right: Notification Bell icon (`Icons.Outlined.Notifications`) with circular click ripple.
+  - **Hero Greeting**:
+    - "Hello, Alex! 👋" in `title-sm` secondary color (`#5D5F5F`).
+    - Headline: "Travel anywhere together. Spend smarter." in `display-lg` bold (`#041B3C`).
+  - **Hero Search Card** (Surface Container Lowest `#FFFFFF`, 16dp rounded-xl, 2dp Primary border `#003D9B` / `#0052CC`, subtle shadow):
+    - `FROM` section (label-caps in secondary): Trip origin icon (`Icons.Outlined.TripOrigin`) + Text input ("City, station, place").
+    - Divider line (`#C3C6D6`).
+    - `TO` section (label-caps in secondary): Destination pin icon (`Icons.Outlined.LocationOn`) + Text input ("City, station, place").
+    - Divider line (`#C3C6D6`).
+    - `DATE` section: Calendar icon (`Icons.Outlined.CalendarToday`) + selectable text (e.g. "Today").
+    - Divider line (`#C3C6D6`).
+    - `PASSENGERS` section: Person icon (`Icons.Outlined.Person`) + selectable text (e.g. "1 passenger").
+    - `Search` Button: Full-width button with Search icon (`Icons.Outlined.Search`) + "Search" text, 48dp height, 8dp radius, primary container color (`#0052CC`).
+  - **Recent Searches Section**:
+    - Header Row: "Recent searches" (`headline-md-mobile` 20sp bold) + "CLEAR ALL" action button (primary blue label-caps).
+    - Recent search list cards (white `#FFFFFF`, 12dp radius, elevation):
+      - Card 1: Clock schedule icon (`Icons.Outlined.Schedule`) in circular container + "Seohara → Delhi" + "2 passengers" + Chevron right icon (`Icons.AutoMirrored.Outlined.ChevronRight`).
+      - Card 2: Clock schedule icon in circular container + "Seohara → Pune" + "3 passengers" + Chevron right icon.
+  - **Bottom Navigation Bar** (5-tab persistent shell, 72dp height, `#FFFFFF` with top border `#C3C6D6` & elevation):
+    - `Search` (Active: Filled search icon + primary blue `#003D9B`).
+    - `Publish` (Outlined add_circle icon + secondary grey).
+    - `Your Rides` (Outlined confirmation_number / directions_car icon + secondary grey).
+    - `Inbox` (Outlined chat_bubble icon + secondary grey).
+    - `Profile` (Outlined person icon + secondary grey).
 
 ---
 

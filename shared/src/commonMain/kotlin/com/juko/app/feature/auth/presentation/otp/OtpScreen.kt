@@ -28,7 +28,7 @@ import cafe.adriel.voyager.navigator.currentOrThrow
 import com.juko.app.core.presentation.components.JukoButton
 import com.juko.app.core.presentation.theme.LocalSpacing
 import com.juko.app.feature.auth.presentation.auth.AuthScreen
-import com.juko.app.feature.home.presentation.HomeScreen
+import com.juko.app.feature.main.MainContainerScreen
 
 class OtpScreen : Screen {
     @Composable
@@ -41,8 +41,7 @@ class OtpScreen : Screen {
             viewModel.effect.collect { effect ->
                 when (effect) {
                     OtpSideEffect.NavigateToNext -> {
-                        // TODO: Navigate to Home or Success
-                        navigator.replaceAll(HomeScreen())
+                        navigator.replaceAll(MainContainerScreen())
                     }
                     OtpSideEffect.NavigateBack -> {
                         navigator.pop()

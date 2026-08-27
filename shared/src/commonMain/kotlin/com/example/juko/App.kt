@@ -15,6 +15,7 @@ import com.juko.app.core.data.TokenManager
 import com.juko.app.core.presentation.theme.JukoTheme
 import com.juko.app.feature.auth.presentation.auth.AuthScreen
 import com.juko.app.feature.home.presentation.HomeScreen
+import com.juko.app.feature.main.MainContainerScreen
 import org.koin.compose.koinInject
 
 @Composable
@@ -30,7 +31,7 @@ fun App() {
 
     JukoTheme {
         isAuthenticated?.let { authenticated ->
-            Navigator(screen = if (authenticated) HomeScreen() else AuthScreen())
+            Navigator(screen = if (authenticated) MainContainerScreen() else AuthScreen())
         } ?: run {
             Box(
                 modifier = Modifier

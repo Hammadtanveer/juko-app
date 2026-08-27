@@ -7,7 +7,20 @@ import androidx.compose.runtime.CompositionLocalProvider
 
 private val JukoLightColorScheme = lightColorScheme(
     primary = JukoPrimary,
-    background = JukoBackground
+    onPrimary = JukoOnPrimary,
+    primaryContainer = JukoPrimaryContainer,
+    secondary = JukoSecondary,
+    secondaryContainer = JukoSecondaryContainer,
+    tertiary = JukoTertiary,
+    tertiaryContainer = JukoTertiaryContainer,
+    error = JukoError,
+    surface = JukoSurface,
+    onSurface = JukoOnSurface,
+    onSurfaceVariant = JukoOnSurfaceVariant,
+    outline = JukoOutline,
+    outlineVariant = JukoOutlineVariant,
+    background = JukoBackground,
+    onBackground = JukoOnBackground
 )
 
 @Composable
@@ -15,6 +28,8 @@ fun JukoTheme(content: @Composable () -> Unit) {
     CompositionLocalProvider(LocalSpacing provides DefaultSpacing) {
         MaterialTheme(
             colorScheme = JukoLightColorScheme,
+            typography = JukoTypography,
+            shapes = JukoShapes,
             content = content
         )
     }

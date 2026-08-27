@@ -88,7 +88,7 @@ class SignupViewModel(
                 password = currentState.password
             ).onSuccess {
                 _state.update { it.copy(isLoading = false) }
-                _effect.send(SignupSideEffect.NavigateToLogin)
+                _effect.send(SignupSideEffect.NavigateToHome)
             }.onFailure { error ->
                 _state.update { 
                     it.copy(

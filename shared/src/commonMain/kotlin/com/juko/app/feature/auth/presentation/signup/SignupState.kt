@@ -30,5 +30,6 @@ sealed interface SignupEvent {
 
 sealed interface SignupSideEffect {
     data object NavigateToLogin : SignupSideEffect
+    data object NavigateToHome : SignupSideEffect
     data class ShowError(val message: String) : SignupSideEffect
 }

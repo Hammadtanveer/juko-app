@@ -39,7 +39,7 @@ import com.juko.app.feature.auth.presentation.signup.SignupSideEffect
 import com.juko.app.feature.auth.presentation.signup.SignupState
 import com.juko.app.feature.auth.presentation.signup.SignupViewModel
 import com.juko.app.feature.home.presentation.HomeScreen
-import cafe.adriel.voyager.koin.getScreenModel
+import com.juko.app.feature.main.MainContainerScreen
 
 class AuthScreen : Screen {
     @Composable
@@ -56,7 +56,7 @@ class AuthScreen : Screen {
         LaunchedEffect(Unit) {
             loginViewModel.effect.collect { effect ->
                 when (effect) {
-                    is LoginSideEffect.NavigateToHome -> navigator.replaceAll(HomeScreen())
+                    is LoginSideEffect.NavigateToHome -> navigator.replaceAll(MainContainerScreen())
                     is LoginSideEffect.NavigateToSignup -> selectedTab = 1
                     is LoginSideEffect.NavigateToForgotPassword -> navigator.push(OtpScreen())
                     is LoginSideEffect.ShowError -> { /* Show error */ }
@@ -68,6 +68,7 @@ class AuthScreen : Screen {
             signupViewModel.effect.collect { effect ->
                 when (effect) {
                     SignupSideEffect.NavigateToLogin -> selectedTab = 0
+                    SignupSideEffect.NavigateToHome -> navigator.replaceAll(MainContainerScreen())
                     is SignupSideEffect.ShowError -> { /* Show error */ }
                 }
             }
