@@ -10,6 +10,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.input.VisualTransformation
+import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import com.juko.app.core.presentation.theme.LocalSpacing
 
@@ -22,6 +23,7 @@ fun JukoTextField(
     placeholder: String? = null,
     errorText: String? = null,
     keyboardOptions: KeyboardOptions = KeyboardOptions.Default,
+    keyboardActions: KeyboardActions = KeyboardActions.Default,
     visualTransformation: VisualTransformation = VisualTransformation.None,
     trailingIcon: @Composable (() -> Unit)? = null,
     prefix: @Composable (() -> Unit)? = null
@@ -45,6 +47,7 @@ fun JukoTextField(
             shape = MaterialTheme.shapes.small,
             isError = isError,
             keyboardOptions = keyboardOptions,
+            keyboardActions = keyboardActions,
             visualTransformation = visualTransformation,
             placeholder = {
                 if (!placeholder.isNullOrBlank()) {

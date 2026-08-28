@@ -27,13 +27,17 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import cafe.adriel.voyager.core.screen.Screen
+import cafe.adriel.voyager.navigator.LocalNavigator
+import cafe.adriel.voyager.navigator.currentOrThrow
 import com.juko.app.core.presentation.components.JukoButton
 import com.juko.app.core.presentation.theme.LocalSpacing
+import com.juko.app.feature.search.presentation.SearchResultsScreen
 import kotlinx.datetime.toLocalDateTime
 
 class HomeScreen : Screen {
     @Composable
     override fun Content() {
+        val navigator = LocalNavigator.currentOrThrow
         val spacing = LocalSpacing.current
         
         Scaffold(
@@ -56,7 +60,18 @@ class HomeScreen : Screen {
                 
                 item {
                     Spacer(modifier = Modifier.height(12.dp))
-                    SearchCard()
+                    SearchCard(
+                        onSearch = { from, to, date, passengers ->
+                            navigator.push(
+                                SearchResultsScreen(
+                                    origin = from,
+                                    destination = to,
+                                    date = date,
+                                    passengers = passengers
+                                )
+                            )
+                        }
+                    )
                 }
                 
                 item {
@@ -65,7 +80,19 @@ class HomeScreen : Screen {
                 }
                 
                 items(recentSearchList) { search ->
-                    RecentSearchCard(search)
+                    RecentSearchCard(
+                        search = search,
+                        onClick = {
+                            navigator.push(
+                                SearchResultsScreen(
+                                    origin = search.from,
+                                    destination = search.to,
+                                    date = "Today",
+                                    passengers = search.passengers
+                                )
+                            )
+                        }
+                    )
                     Spacer(modifier = Modifier.height(spacing.md))
                 }
                 
@@ -130,7 +157,9 @@ private fun HeroSection() {
 }
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun SearchCard() {
+private fun SearchCard(
+    onSearch: (String, String, String, Int) -> Unit
+) {
     val spacing = LocalSpacing.current
     var fromText by remember { mutableStateOf("") }
     var toText by remember { mutableStateOf("") }
@@ -229,7 +258,9 @@ private fun SearchCard() {
             
             JukoButton(
                 text = "Search",
-                onClick = { /* TODO: Execute search */ },
+                onClick = {
+                    onSearch(fromText, toText, dateText, passengers)
+                },
                 modifier = Modifier.fillMaxWidth().height(48.dp),
                 shape = RoundedCornerShape(8.dp),
                 leadingIcon = {
@@ -350,10 +381,12 @@ private fun RecentSearchesHeader() {
 }
 
 @Composable
-private fun RecentSearchCard(search: RecentSearch) {
+private fun RecentSearchCard(search: RecentSearch, onClick: () -> Unit) {
     val spacing = LocalSpacing.current
     Surface(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable { onClick() },
         shape = RoundedCornerShape(12.dp),
         color = MaterialTheme.colorScheme.surface,
         shadowElevation = 2.dp

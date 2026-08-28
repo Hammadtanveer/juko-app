@@ -28,7 +28,7 @@ class LoginViewModel(
                 _state.update { it.copy(email = event.value, emailError = null) }
             }
             is LoginEvent.PasswordChanged -> {
-                _state.update { it.copy(password = event.value, passwordError = null) }
+                _state.update { it.copy(password = event.value.take(16), passwordError = null) }
             }
             is LoginEvent.Submit -> performLogin()
             is LoginEvent.SignupClicked -> {

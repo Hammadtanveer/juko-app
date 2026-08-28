@@ -5,6 +5,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.ArrowBack
 import androidx.compose.material.icons.outlined.*
@@ -16,6 +17,8 @@ import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
@@ -476,19 +479,56 @@ private fun SegmentPriceCard(segment: String, price: Int, onPriceChange: (Int) -
             horizontalArrangement = Arrangement.SpaceBetween
         ) {
             Text(segment, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f))
-            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(spacing.md)) {
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(spacing.sm)) {
                 IconButton(
-                    onClick = { if (price > 100) onPriceChange(price - 50) },
+                    onClick = { if (price >= 10) onPriceChange(price - 10) else onPriceChange(0) },
                     modifier = Modifier.border(1.dp, Color(0xFFC3C6D6), CircleShape).size(28.dp)
                 ) {
-                    Icon(Icons.Outlined.Remove, contentDescription = null, modifier = Modifier.size(14.dp))
+                    Icon(Icons.Outlined.Remove, contentDescription = "Decrease price by 10", modifier = Modifier.size(14.dp))
                 }
-                Text("₹$price", style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.Bold)
+
+                Surface(
+                    color = Color(0xFFF4F5F7),
+                    shape = RoundedCornerShape(8.dp),
+                    border = BorderStroke(1.dp, Color(0xFFE0E8FF))
+                ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                    ) {
+                        Text(
+                            text = "₹",
+                            style = MaterialTheme.typography.bodyLarge,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.primary
+                        )
+                        Spacer(modifier = Modifier.width(2.dp))
+                        BasicTextField(
+                            value = if (price == 0) "" else price.toString(),
+                            onValueChange = { input ->
+                                val digitsOnly = input.filter { it.isDigit() }
+                                val newPrice = digitsOnly.toIntOrNull() ?: 0
+                                onPriceChange(newPrice)
+                            },
+                            keyboardOptions = KeyboardOptions(
+                                keyboardType = KeyboardType.Number,
+                                imeAction = ImeAction.Done
+                            ),
+                            textStyle = MaterialTheme.typography.bodyLarge.copy(
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.onSurface
+                            ),
+                            singleLine = true,
+                            modifier = Modifier.width(IntrinsicSize.Min)
+                        )
+                    }
+                }
+
                 IconButton(
-                    onClick = { onPriceChange(price + 50) },
+                    onClick = { onPriceChange(price + 10) },
                     modifier = Modifier.background(MaterialTheme.colorScheme.primary, CircleShape).size(28.dp)
                 ) {
-                    Icon(Icons.Outlined.Add, contentDescription = null, tint = Color.White, modifier = Modifier.size(14.dp))
+                    Icon(Icons.Outlined.Add, contentDescription = "Increase price by 10", tint = Color.White, modifier = Modifier.size(14.dp))
                 }
             }
         }

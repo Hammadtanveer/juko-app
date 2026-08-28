@@ -27,9 +27,13 @@ class SignupViewModel(
             is SignupEvent.ProfilePhotoSelected -> _state.update { it.copy(profilePhotoUri = event.uri) }
             is SignupEvent.NameChanged -> _state.update { it.copy(fullName = event.value, nameError = null) }
             is SignupEvent.EmailChanged -> _state.update { it.copy(email = event.value, emailError = null) }
-            is SignupEvent.PhoneChanged -> _state.update { it.copy(phone = event.value, phoneError = null) }
-            is SignupEvent.PasswordChanged -> _state.update { it.copy(password = event.value, passwordError = null) }
-            is SignupEvent.ConfirmPasswordChanged -> _state.update { it.copy(confirmPassword = event.value, confirmPasswordError = null) }
+            is SignupEvent.PhoneChanged -> {
+                val digits = event.value.filter { char -> char.isDigit() }.take(10)
+                val error = if (digits.length in 1..9) "Phone number must be 10 digits" else null
+                _state.update { it.copy(phone = digits, phoneError = error) }
+            }
+            is SignupEvent.PasswordChanged -> _state.update { it.copy(password = event.value.take(16), passwordError = null) }
+            is SignupEvent.ConfirmPasswordChanged -> _state.update { it.copy(confirmPassword = event.value.take(16), confirmPasswordError = null) }
             is SignupEvent.Submit -> performSignup()
             is SignupEvent.LoginClicked -> {
                 screenModelScope.launch { _effect.send(SignupSideEffect.NavigateToLogin) }
@@ -51,9 +55,15 @@ class SignupViewModel(
 
     private fun performSignup() {
         val currentState = _state.value
+
+        if (currentState.phone.length < 10) {
+            _state.update { it.copy(phoneError = "Please enter a valid 10-digit mobile number") }
+            return
+        }
+
         val name = currentState.fullName.ifBlank { "Alex Kumar" }
         val email = currentState.email.ifBlank { "alex@juko.app" }
-        val phone = currentState.phone.ifBlank { "9876543210" }
+        val phone = currentState.phone
         val password = currentState.password.ifBlank { "Password123" }
 
         screenModelScope.launch {

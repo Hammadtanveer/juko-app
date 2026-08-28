@@ -27,7 +27,7 @@ internal object SearchTab : Tab {
 
     @Composable
     override fun Content() {
-        HomeScreen().Content()
+        Navigator(HomeScreen())
     }
 }
 
@@ -87,7 +87,7 @@ internal object InboxTab : Tab {
 
     @Composable
     override fun Content() {
-        // Placeholder
+        Navigator(com.juko.app.feature.inbox.presentation.InboxScreen())
     }
 }
 
@@ -107,6 +107,6 @@ internal object ProfileTab : Tab {
 
     @Composable
     override fun Content() {
-        // Placeholder
+        Navigator(com.juko.app.feature.profile.presentation.ProfileScreen())
     }
 }

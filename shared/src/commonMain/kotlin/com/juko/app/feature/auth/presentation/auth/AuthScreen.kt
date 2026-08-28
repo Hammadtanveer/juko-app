@@ -16,7 +16,13 @@ import androidx.compose.ui.draw.blur
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.PathEffect
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.ui.focus.FocusDirection
+import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.text.style.TextAlign
@@ -194,6 +200,7 @@ private fun LoginForm(
     onEvent: (LoginEvent) -> Unit
 ) {
     val spacing = LocalSpacing.current
+    val focusManager = LocalFocusManager.current
     var passwordVisible by remember { mutableStateOf(false) }
 
     Surface(
@@ -212,6 +219,13 @@ private fun LoginForm(
                 label = "EMAIL ADDRESS",
                 placeholder = "name@example.com",
                 errorText = state.emailError,
+                keyboardOptions = KeyboardOptions(
+                    keyboardType = KeyboardType.Email,
+                    imeAction = ImeAction.Next
+                ),
+                keyboardActions = KeyboardActions(
+                    onNext = { focusManager.moveFocus(FocusDirection.Down) }
+                ),
                 modifier = Modifier.fillMaxWidth()
             )
 
@@ -237,8 +251,19 @@ private fun LoginForm(
 
                 OutlinedTextField(
                     value = state.password,
-                    onValueChange = { onEvent(LoginEvent.PasswordChanged(it)) },
+                    onValueChange = { if (it.length <= 16) onEvent(LoginEvent.PasswordChanged(it)) },
                     modifier = Modifier.fillMaxWidth().height(56.dp),
+                    singleLine = true,
+                    keyboardOptions = KeyboardOptions(
+                        keyboardType = KeyboardType.Password,
+                        imeAction = ImeAction.Done
+                    ),
+                    keyboardActions = KeyboardActions(
+                        onDone = {
+                            focusManager.clearFocus()
+                            onEvent(LoginEvent.Submit)
+                        }
+                    ),
                     placeholder = {
                         Text(
                             text = "••••••••",
@@ -296,6 +321,7 @@ private fun SignupForm(
     onEvent: (SignupEvent) -> Unit
 ) {
     val spacing = LocalSpacing.current
+    val focusManager = LocalFocusManager.current
     var passwordVisible by remember { mutableStateOf(false) }
     var confirmPasswordVisible by remember { mutableStateOf(false) }
 
@@ -368,6 +394,13 @@ private fun SignupForm(
                 label = "FULL NAME",
                 placeholder = "John Doe",
                 errorText = state.nameError,
+                keyboardOptions = KeyboardOptions(
+                    keyboardType = KeyboardType.Text,
+                    imeAction = ImeAction.Next
+                ),
+                keyboardActions = KeyboardActions(
+                    onNext = { focusManager.moveFocus(FocusDirection.Down) }
+                ),
                 modifier = Modifier.fillMaxWidth()
             )
 
@@ -377,6 +410,13 @@ private fun SignupForm(
                 label = "EMAIL ADDRESS",
                 placeholder = "john.doe@email.com",
                 errorText = state.emailError,
+                keyboardOptions = KeyboardOptions(
+                    keyboardType = KeyboardType.Email,
+                    imeAction = ImeAction.Next
+                ),
+                keyboardActions = KeyboardActions(
+                    onNext = { focusManager.moveFocus(FocusDirection.Down) }
+                ),
                 modifier = Modifier.fillMaxWidth()
             )
 
@@ -407,8 +447,25 @@ private fun SignupForm(
                     }
                     OutlinedTextField(
                         value = state.phone,
-                        onValueChange = { onEvent(SignupEvent.PhoneChanged(it)) },
+                        onValueChange = { input ->
+                            val digitsOnly = input.filter { it.isDigit() }
+                            if (digitsOnly.length <= 10) {
+                                onEvent(SignupEvent.PhoneChanged(digitsOnly))
+                            }
+                        },
                         modifier = Modifier.weight(1f).height(56.dp),
+                        singleLine = true,
+                        keyboardOptions = KeyboardOptions(
+                            keyboardType = KeyboardType.Phone,
+                            imeAction = ImeAction.Next
+                        ),
+                        keyboardActions = KeyboardActions(
+                            onNext = {
+                                if (state.phone.length == 10) {
+                                    focusManager.moveFocus(FocusDirection.Down)
+                                }
+                            }
+                        ),
                         placeholder = {
                             Text(
                                 text = "1234567890",
@@ -434,10 +491,17 @@ private fun SignupForm(
 
             JukoTextField(
                 value = state.password,
-                onValueChange = { onEvent(SignupEvent.PasswordChanged(it)) },
+                onValueChange = { if (it.length <= 16) onEvent(SignupEvent.PasswordChanged(it)) },
                 label = "PASSWORD",
                 placeholder = "••••••••",
                 errorText = state.passwordError,
+                keyboardOptions = KeyboardOptions(
+                    keyboardType = KeyboardType.Password,
+                    imeAction = ImeAction.Next
+                ),
+                keyboardActions = KeyboardActions(
+                    onNext = { focusManager.moveFocus(FocusDirection.Down) }
+                ),
                 visualTransformation = if (passwordVisible) VisualTransformation.None else PasswordVisualTransformation(),
                 trailingIcon = {
                     val image = if (passwordVisible) Icons.Default.Visibility else Icons.Default.VisibilityOff
@@ -450,10 +514,20 @@ private fun SignupForm(
 
             JukoTextField(
                 value = state.confirmPassword,
-                onValueChange = { onEvent(SignupEvent.ConfirmPasswordChanged(it)) },
+                onValueChange = { if (it.length <= 16) onEvent(SignupEvent.ConfirmPasswordChanged(it)) },
                 label = "CONFIRM PASSWORD",
                 placeholder = "••••••••",
                 errorText = state.confirmPasswordError,
+                keyboardOptions = KeyboardOptions(
+                    keyboardType = KeyboardType.Password,
+                    imeAction = ImeAction.Done
+                ),
+                keyboardActions = KeyboardActions(
+                    onDone = {
+                        focusManager.clearFocus()
+                        onEvent(SignupEvent.Submit)
+                    }
+                ),
                 visualTransformation = if (confirmPasswordVisible) VisualTransformation.None else PasswordVisualTransformation(),
                 trailingIcon = {
                     val image = if (confirmPasswordVisible) Icons.Default.Visibility else Icons.Default.VisibilityOff
