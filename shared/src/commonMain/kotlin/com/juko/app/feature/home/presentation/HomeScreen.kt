@@ -42,7 +42,11 @@ class HomeScreen : Screen {
         
         Scaffold(
             topBar = {
-                HomeHeader()
+                HomeHeader(
+                    onNotificationClick = {
+                        navigator.push(com.juko.app.feature.notifications.presentation.NotificationsScreen())
+                    }
+                )
             },
             containerColor = MaterialTheme.colorScheme.background,
             contentWindowInsets = WindowInsets(0, 0, 0, 0)
@@ -105,7 +109,7 @@ class HomeScreen : Screen {
 }
 
 @Composable
-private fun HomeHeader() {
+private fun HomeHeader(onNotificationClick: () -> Unit = {}) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -129,7 +133,7 @@ private fun HomeHeader() {
         }
         
         IconButton(
-            onClick = { /* TODO */ },
+            onClick = onNotificationClick,
             modifier = Modifier.clip(CircleShape).background(MaterialTheme.colorScheme.surface)
         ) {
             Icon(Icons.Outlined.Notifications, contentDescription = "Notifications")

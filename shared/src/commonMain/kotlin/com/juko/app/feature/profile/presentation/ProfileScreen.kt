@@ -153,7 +153,9 @@ class ProfileScreen : Screen {
                                 }
                             }
 
-                            IconButton(onClick = { /* Notifications */ }) {
+                            IconButton(onClick = {
+                                navigator.push(com.juko.app.feature.notifications.presentation.NotificationsScreen())
+                            }) {
                                 Icon(
                                     Icons.Outlined.Notifications,
                                     contentDescription = "Notifications",

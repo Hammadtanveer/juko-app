@@ -83,7 +83,9 @@ data class SearchResultsScreen(
                                 color = MaterialTheme.colorScheme.onSurface
                             )
                             Box {
-                                IconButton(onClick = { /* Notifications */ }) {
+                                IconButton(onClick = {
+                                    navigator.push(com.juko.app.feature.notifications.presentation.NotificationsScreen())
+                                }) {
                                     Icon(
                                         Icons.Outlined.Notifications,
                                         contentDescription = "Alerts",
