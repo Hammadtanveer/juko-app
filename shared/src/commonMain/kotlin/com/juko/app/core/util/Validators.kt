@@ -18,12 +18,13 @@ object Validators {
 
     fun validatePassword(password: String): ValidationResult {
         if (password.isBlank()) return ValidationResult.Invalid("Password is required")
-        // Min 8 chars, at least 1 uppercase letter, at least 1 number
-        val regex = Regex("^(?=.*[A-Z])(?=.*\\d).{8,}$")
+        if (password.length > 16) return ValidationResult.Invalid("Password cannot exceed 16 characters")
+        // Min 8 chars, max 16 chars, at least 1 uppercase letter, at least 1 number
+        val regex = Regex("^(?=.*[A-Z])(?=.*\\d).{8,16}$")
         return if (regex.matches(password)) {
             ValidationResult.Valid
         } else {
-            ValidationResult.Invalid("Password must be at least 8 characters with 1 number and 1 uppercase letter")
+            ValidationResult.Invalid("Password must be 8-16 characters with 1 number and 1 uppercase letter")
         }
     }
 
@@ -39,6 +40,8 @@ object Validators {
 
     fun validatePhone(phone: String): ValidationResult {
         if (phone.isBlank()) return ValidationResult.Invalid("Phone number is required")
+        if (phone.length < 10) return ValidationResult.Invalid("Phone number must be at least 10 digits")
+        if (phone.length > 10) return ValidationResult.Invalid("Phone number cannot exceed 10 digits")
         val regex = Regex("^[6-9]\\d{9}$")
         return if (regex.matches(phone)) {
             ValidationResult.Valid
