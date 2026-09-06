@@ -2,6 +2,7 @@ package com.juko.app.feature.postride.presentation
 
 import cafe.adriel.voyager.core.model.ScreenModel
 import cafe.adriel.voyager.core.model.screenModelScope
+import com.juko.app.core.data.RideStateManager
 import com.juko.app.feature.postride.domain.model.RideOffer
 import com.juko.app.feature.postride.domain.usecase.PublishRideUseCase
 import kotlinx.coroutines.channels.Channel
@@ -82,6 +83,16 @@ class PostRideViewModel(
             
             is PostRideEvent.Submit -> performPublish()
             is PostRideEvent.SaveDraft -> {
+                RideStateManager.publishRide(
+                    origin = _state.value.origin,
+                    destination = _state.value.destination,
+                    stops = _state.value.stops,
+                    departureDate = _state.value.departureDate,
+                    departureTime = _state.value.departureTime,
+                    totalSeats = _state.value.availableSeats,
+                    pricePerSeat = _state.value.pricePerSeat,
+                    isDraft = true
+                )
                 screenModelScope.launch {
                     _effect.send(PostRideSideEffect.ShowToast("Draft saved!"))
                     _effect.send(PostRideSideEffect.NavigateToHome)
@@ -106,6 +117,17 @@ class PostRideViewModel(
         screenModelScope.launch {
             _state.update { it.copy(isLoading = true, error = null) }
             
+            RideStateManager.publishRide(
+                origin = _state.value.origin,
+                destination = _state.value.destination,
+                stops = _state.value.stops,
+                departureDate = _state.value.departureDate,
+                departureTime = _state.value.departureTime,
+                totalSeats = _state.value.availableSeats,
+                pricePerSeat = _state.value.pricePerSeat,
+                isDraft = false
+            )
+
             val offer = RideOffer(
                 driverId = "dr_001",
                 origin = _state.value.origin,

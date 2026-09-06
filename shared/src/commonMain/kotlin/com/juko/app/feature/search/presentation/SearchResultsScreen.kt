@@ -25,6 +25,9 @@ import androidx.compose.ui.unit.sp
 import cafe.adriel.voyager.core.screen.Screen
 import cafe.adriel.voyager.navigator.LocalNavigator
 import cafe.adriel.voyager.navigator.currentOrThrow
+import com.juko.app.core.data.RideStateManager
+import com.juko.app.core.model.RouteLocation
+import com.juko.app.core.model.SearchRideItem
 import com.juko.app.core.presentation.components.JukoAvatar
 import com.juko.app.core.presentation.theme.LocalSpacing
 
@@ -40,13 +43,32 @@ data class SearchResultsScreen(
         val navigator = LocalNavigator.currentOrThrow
         val spacing = LocalSpacing.current
 
-        var selectedSort by remember { mutableStateOf("Sort") }
-        var selectedPriceFilter by remember { mutableStateOf<String?>(null) }
-        var selectedTimeFilter by remember { mutableStateOf<String?>(null) }
-        var selectedSeatsFilter by remember { mutableStateOf<String?>(null) }
+        var selectedSortOption by remember { mutableStateOf(SearchSortOption.EARLIEST_DEPARTURE) }
+        var verifiedProfileOnly by remember { mutableStateOf(false) }
+        var showFilterDialog by remember { mutableStateOf(false) }
 
         val primaryBlue = Color(0xFF0052CC)
-        val searchResults = remember { getDummySearchResults(origin, destination) }
+        val publishedRidesState by RideStateManager.publishedRides.collectAsState()
+        var currentOrigin by remember { mutableStateOf(origin) }
+        var currentDestination by remember { mutableStateOf(destination) }
+
+        val rawResults = remember(publishedRidesState, currentOrigin, currentDestination) {
+            RideStateManager.searchRides(currentOrigin, currentDestination)
+        }
+
+        val searchResults = remember(rawResults, selectedSortOption, verifiedProfileOnly) {
+            var list = rawResults
+            if (verifiedProfileOnly) {
+                list = list.filter { it.isDriverVerified }
+            }
+            when (selectedSortOption) {
+                SearchSortOption.EARLIEST_DEPARTURE -> list.sortedBy { parseTimeToMinutes(it.departureTime) }
+                SearchSortOption.LOWEST_PRICE -> list.sortedBy { it.price }
+                SearchSortOption.CLOSE_TO_DEPARTURE -> list.sortedBy { it.departureDistanceKm }
+                SearchSortOption.CLOSE_TO_ARRIVAL -> list.sortedBy { it.arrivalDistanceKm }
+                SearchSortOption.SHORTEST_RIDE -> list.sortedBy { it.durationMinutes }
+            }
+        }
 
         Scaffold(
             topBar = {
@@ -82,8 +104,10 @@ data class SearchResultsScreen(
                                 fontWeight = FontWeight.Bold,
                                 color = MaterialTheme.colorScheme.onSurface
                             )
-                            Box {
-                                IconButton(onClick = { /* Notifications */ }) {
+                            Box(contentAlignment = Alignment.TopEnd) {
+                                IconButton(onClick = {
+                                    navigator.push(com.juko.app.feature.notifications.presentation.NotificationsScreen())
+                                }) {
                                     Icon(
                                         Icons.Outlined.Notifications,
                                         contentDescription = "Alerts",
@@ -92,11 +116,13 @@ data class SearchResultsScreen(
                                 }
                                 Box(
                                     modifier = Modifier
+                                        .padding(top = 8.dp, end = 8.dp)
                                         .size(8.dp)
-                                        .align(Alignment.TopEnd)
-                                        .offset(x = (-10).dp, y = 10.dp)
                                         .clip(CircleShape)
-                                        .background(MaterialTheme.colorScheme.error)
+                                        .background(Color.White)
+                                        .padding(1.dp)
+                                        .clip(CircleShape)
+                                        .background(Color(0xFFEF4444))
                                 )
                             }
                         }
@@ -122,7 +148,7 @@ data class SearchResultsScreen(
                                         horizontalArrangement = Arrangement.spacedBy(spacing.xs)
                                     ) {
                                         Text(
-                                            text = origin.ifBlank { "Delhi" },
+                                            text = currentOrigin.ifBlank { "All Origins" },
                                             style = MaterialTheme.typography.titleSmall,
                                             fontWeight = FontWeight.Bold,
                                             color = MaterialTheme.colorScheme.onSurface
@@ -134,14 +160,14 @@ data class SearchResultsScreen(
                                             tint = MaterialTheme.colorScheme.onSurfaceVariant
                                         )
                                         Text(
-                                            text = destination.ifBlank { "Seohara" },
+                                            text = currentDestination.ifBlank { "All Destinations" },
                                             style = MaterialTheme.typography.titleSmall,
                                             fontWeight = FontWeight.Bold,
                                             color = MaterialTheme.colorScheme.onSurface
                                         )
                                     }
                                     Text(
-                                        text = "$date • $passengers ${if (passengers == 1) "Passenger" else "Passengers"}",
+                                        text = "$date • $passengers ${if (passengers == 1) "Passenger" else "Passengers"} • ${searchResults.size} rides",
                                         style = MaterialTheme.typography.bodyMedium,
                                         color = MaterialTheme.colorScheme.onSurfaceVariant
                                     )
@@ -164,43 +190,76 @@ data class SearchResultsScreen(
                             }
                         }
 
-                        // Filter / Sort Bar
+                        // Filter / Sort Bar: Strictly SORT BY + TRUST AND SAFETY
                         LazyRow(
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .padding(vertical = spacing.sm),
                             horizontalArrangement = Arrangement.spacedBy(spacing.xs)
                         ) {
+                            // 1. Sort By Trigger (opens dialog)
                             item {
                                 FilterChipPill(
-                                    label = "Sort",
+                                    label = "Sort: ${selectedSortOption.title}",
                                     icon = Icons.Outlined.Sort,
-                                    isSelected = selectedSort != "Sort",
-                                    onClick = { /* Handle sort */ }
+                                    hasDropdown = true,
+                                    isSelected = true,
+                                    onClick = { showFilterDialog = true }
                                 )
                             }
+
+                            // 2. Trust & Safety: Verified profile
                             item {
                                 FilterChipPill(
-                                    label = "Price",
-                                    hasDropdown = true,
-                                    isSelected = selectedPriceFilter != null,
-                                    onClick = { /* Handle price */ }
+                                    label = "Verified Profile",
+                                    icon = if (verifiedProfileOnly) Icons.Outlined.CheckCircle else Icons.Outlined.VerifiedUser,
+                                    isSelected = verifiedProfileOnly,
+                                    onClick = { verifiedProfileOnly = !verifiedProfileOnly }
                                 )
                             }
+
+                            // 3. Quick Sort: Earliest departure
                             item {
                                 FilterChipPill(
-                                    label = "Time",
-                                    hasDropdown = true,
-                                    isSelected = selectedTimeFilter != null,
-                                    onClick = { /* Handle time */ }
+                                    label = "Earliest departure",
+                                    isSelected = selectedSortOption == SearchSortOption.EARLIEST_DEPARTURE,
+                                    onClick = { selectedSortOption = SearchSortOption.EARLIEST_DEPARTURE }
                                 )
                             }
+
+                            // 4. Quick Sort: Lowest price
                             item {
                                 FilterChipPill(
-                                    label = "Seats",
-                                    hasDropdown = true,
-                                    isSelected = selectedSeatsFilter != null,
-                                    onClick = { /* Handle seats */ }
+                                    label = "Lowest price",
+                                    isSelected = selectedSortOption == SearchSortOption.LOWEST_PRICE,
+                                    onClick = { selectedSortOption = SearchSortOption.LOWEST_PRICE }
+                                )
+                            }
+
+                            // 5. Quick Sort: Shortest ride
+                            item {
+                                FilterChipPill(
+                                    label = "Shortest ride",
+                                    isSelected = selectedSortOption == SearchSortOption.SHORTEST_RIDE,
+                                    onClick = { selectedSortOption = SearchSortOption.SHORTEST_RIDE }
+                                )
+                            }
+
+                            // 6. Quick Sort: Close to departure point
+                            item {
+                                FilterChipPill(
+                                    label = "Close to departure point",
+                                    isSelected = selectedSortOption == SearchSortOption.CLOSE_TO_DEPARTURE,
+                                    onClick = { selectedSortOption = SearchSortOption.CLOSE_TO_DEPARTURE }
+                                )
+                            }
+
+                            // 7. Quick Sort: Close to arrival point
+                            item {
+                                FilterChipPill(
+                                    label = "Close to arrival point",
+                                    isSelected = selectedSortOption == SearchSortOption.CLOSE_TO_ARRIVAL,
+                                    onClick = { selectedSortOption = SearchSortOption.CLOSE_TO_ARRIVAL }
                                 )
                             }
                         }
@@ -218,8 +277,74 @@ data class SearchResultsScreen(
                 contentPadding = PaddingValues(top = spacing.md, bottom = 48.dp),
                 verticalArrangement = Arrangement.spacedBy(spacing.md)
             ) {
-                items(searchResults) { ride ->
-                    SearchResultCard(ride = ride, onClick = { /* TODO: Open Ride Details */ })
+                if (searchResults.isEmpty()) {
+                    item {
+                        Surface(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(vertical = spacing.xl),
+                            shape = RoundedCornerShape(16.dp),
+                            color = Color.White,
+                            shadowElevation = 1.dp,
+                            border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFE8EDFF))
+                        ) {
+                            Column(
+                                modifier = Modifier.padding(24.dp),
+                                horizontalAlignment = Alignment.CenterHorizontally,
+                                verticalArrangement = Arrangement.spacedBy(12.dp)
+                            ) {
+                                Box(
+                                    modifier = Modifier
+                                        .size(56.dp)
+                                        .clip(CircleShape)
+                                        .background(Color(0xFFF1F5FE)),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Icon(
+                                        Icons.Outlined.SearchOff,
+                                        contentDescription = null,
+                                        tint = primaryBlue,
+                                        modifier = Modifier.size(28.dp)
+                                    )
+                                }
+                                Text(
+                                    text = "No rides found",
+                                    style = MaterialTheme.typography.titleMedium,
+                                    fontWeight = FontWeight.Bold
+                                )
+                                Text(
+                                    text = if (verifiedProfileOnly)
+                                        "No rides match your criteria with verified profiles. Try unchecking 'Verified Profile' to see more drivers."
+                                    else
+                                        "No available rides matched '${currentOrigin.ifBlank { "Any" }} → ${currentDestination.ifBlank { "Any" }}'. Try searching from a nearby stop or view all available rides.",
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = Color(0xFF737685),
+                                    textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                                )
+                                Button(
+                                    onClick = {
+                                        currentOrigin = ""
+                                        currentDestination = ""
+                                        verifiedProfileOnly = false
+                                        selectedSortOption = SearchSortOption.EARLIEST_DEPARTURE
+                                    },
+                                    colors = ButtonDefaults.buttonColors(containerColor = primaryBlue),
+                                    shape = RoundedCornerShape(8.dp)
+                                ) {
+                                    Text("Reset Filters & View All Rides", fontWeight = FontWeight.Bold)
+                                }
+                            }
+                        }
+                    }
+                } else {
+                    items(searchResults) { ride ->
+                        SearchResultCard(
+                            ride = ride,
+                            onClick = {
+                                navigator.push(RideDetailsScreen(ride = ride))
+                            }
+                        )
+                    }
                 }
                 item {
                     Text(
@@ -234,6 +359,19 @@ data class SearchResultsScreen(
                     )
                 }
             }
+        }
+
+        // Filter & Sort Bottom Sheet / Modal
+        if (showFilterDialog) {
+            FilterSortDialog(
+                currentSort = selectedSortOption,
+                verifiedOnly = verifiedProfileOnly,
+                onApply = { newSort, newVerified ->
+                    selectedSortOption = newSort
+                    verifiedProfileOnly = newVerified
+                },
+                onDismiss = { showFilterDialog = false }
+            )
         }
     }
 }
@@ -395,11 +533,24 @@ private fun SearchResultCard(ride: SearchRideItem, onClick: () -> Unit) {
                         size = 38.dp
                     )
                     Column {
-                        Text(
-                            text = ride.driverName,
-                            style = MaterialTheme.typography.bodyMedium,
-                            fontWeight = FontWeight.SemiBold
-                        )
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(4.dp)
+                        ) {
+                            Text(
+                                text = ride.driverName,
+                                style = MaterialTheme.typography.bodyMedium,
+                                fontWeight = FontWeight.SemiBold
+                            )
+                            if (ride.isDriverVerified) {
+                                Icon(
+                                    Icons.Outlined.CheckCircle,
+                                    contentDescription = "Verified Driver",
+                                    tint = Color(0xFF0284C7),
+                                    modifier = Modifier.size(15.dp)
+                                )
+                            }
+                        }
                         Row(
                             verticalAlignment = Alignment.CenterVertically,
                             horizontalArrangement = Arrangement.spacedBy(2.dp)
@@ -448,67 +599,173 @@ private fun SearchResultCard(ride: SearchRideItem, onClick: () -> Unit) {
     }
 }
 
-data class SearchRideItem(
-    val id: String,
-    val departureTime: String,
-    val departureLocation: String,
-    val viaStops: String,
-    val duration: String,
-    val arrivalTime: String,
-    val arrivalLocation: String,
-    val price: Int,
-    val driverName: String,
-    val driverRating: Double,
-    val driverAvatar: String?,
-    val seatsLeft: Int
-)
+enum class SearchSortOption(val title: String) {
+    EARLIEST_DEPARTURE("Earliest departure"),
+    LOWEST_PRICE("Lowest price"),
+    CLOSE_TO_DEPARTURE("Close to departure point"),
+    CLOSE_TO_ARRIVAL("Close to arrival point"),
+    SHORTEST_RIDE("Shortest ride")
+}
 
-private fun getDummySearchResults(origin: String, destination: String): List<SearchRideItem> {
-    val fromCity = origin.ifBlank { "Delhi" }
-    val toCity = destination.ifBlank { "Seohara" }
+private fun parseTimeToMinutes(timeStr: String): Int {
+    val clean = timeStr.trim().uppercase()
+    val isPm = clean.contains("PM")
+    val isAm = clean.contains("AM")
+    val raw = clean.replace("AM", "").replace("PM", "").trim()
+    val parts = raw.split(":")
+    val rawHour = parts.getOrNull(0)?.toIntOrNull() ?: 8
+    val minute = parts.getOrNull(1)?.toIntOrNull() ?: 0
+    val hour = when {
+        isPm && rawHour < 12 -> rawHour + 12
+        isAm && rawHour == 12 -> 0
+        else -> rawHour
+    }
+    return hour * 60 + minute
+}
 
-    return listOf(
-        SearchRideItem(
-            id = "res_1",
-            departureTime = "08:00",
-            departureLocation = "$fromCity (ISBT)",
-            viaStops = "Chandpur",
-            duration = "4h 30m",
-            arrivalTime = "12:30",
-            arrivalLocation = toCity,
-            price = 450,
-            driverName = "Rahul S.",
-            driverRating = 4.8,
-            driverAvatar = "https://lh3.googleusercontent.com/aida-public/AB6AXuCKYEb47azE7KIsX7pIzB9mjz1RKlj_e8gPNrELvoNxr4a4ZbO81La7WXxWwGuBD-2oQWPHrwDuTRXv1G8uEuA-RFEFlIrMbuUqxPqEyND6lnxpPkr390ck8Lk66bqK1ziDQZwg5V9JSommvmFtM0wURjqHnMp9lErkm5-rTMsXV6xmevXkm-vngAc2TmsP1ntYMnk-QMM6UNewnh-dVrA9XA3G7Y1Td4TGZpheU9qWZsJ0O5IwK7ZU",
-            seatsLeft = 2
-        ),
-        SearchRideItem(
-            id = "res_2",
-            departureTime = "08:00",
-            departureLocation = "$fromCity (JMI)",
-            viaStops = "Chandpur",
-            duration = "4h 30m",
-            arrivalTime = "12:30",
-            arrivalLocation = "$toCity (Main Stand)",
-            price = 380,
-            driverName = "Anita K.",
-            driverRating = 4.9,
-            driverAvatar = "https://lh3.googleusercontent.com/aida-public/AB6AXuDjCFi6hSeikXO26byFKauht4PmxZK204AR3XCqdXpOuM5L__mJ2cTmXDvEcl_G59mMY5F1ZCFx3mDLA5t_LhbfFRCcVN0OADih56H0naDNOo8O80lHswNiCLVi9_wrMvpla3t4r3yZ9nfpKnmLpJJPO7F1Xqg4V1JoPCrzXjc5--k7En9ONj0L9ibdyah-3MncNX0gjvGcHgaPoTqSHFKGhFOl92QEL9O7jfz4ixs01mRBBK9SaEN0",
-            seatsLeft = 1
-        ),
-        SearchRideItem(
-            id = "res_3",
-            departureTime = "08:00",
-            departureLocation = "$fromCity (Kale Khan)",
-            viaStops = "Chandpur",
-            duration = "4h 30m",
-            arrivalTime = "12:30",
-            arrivalLocation = toCity,
-            price = 500,
-            driverName = "Vikram M.",
-            driverRating = 4.6,
-            driverAvatar = "https://lh3.googleusercontent.com/aida-public/AB6AXuAzRflz8ZOhS_ubE7CLsRLWaTuwXxOwkKmx_r9WvvYDeKeKoSu81e41n0dn2HdioLA3eRHuc6VwnblnJi0CnpVfPZ5DZxOmz5jI4RpxKGlELzGrNG2u-G5Bxyuk0VJ4Yo16GPZ4SDli21_imo90sbVbK2XKuJt7TUQeW19Uibm3ugwJupwHgjVaeizjdwVpAxl4f8UXwCAAztao3hRZBLxFL16rd4xuUufYf6aSYTey65FLymTlVpUi",
-            seatsLeft = 3
-        )
+@Composable
+private fun FilterSortDialog(
+    currentSort: SearchSortOption,
+    verifiedOnly: Boolean,
+    onApply: (SearchSortOption, Boolean) -> Unit,
+    onDismiss: () -> Unit
+) {
+    var tempSort by remember { mutableStateOf(currentSort) }
+    var tempVerified by remember { mutableStateOf(verifiedOnly) }
+    val primaryBlue = Color(0xFF0052CC)
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = "Filter & Sort",
+                    style = MaterialTheme.typography.titleLarge,
+                    fontWeight = FontWeight.Bold
+                )
+                TextButton(
+                    onClick = {
+                        tempSort = SearchSortOption.EARLIEST_DEPARTURE
+                        tempVerified = false
+                    }
+                ) {
+                    Text("Reset", color = primaryBlue, fontWeight = FontWeight.SemiBold)
+                }
+            }
+        },
+        text = {
+            Column(
+                modifier = Modifier.fillMaxWidth(),
+                verticalArrangement = Arrangement.spacedBy(16.dp)
+            ) {
+                // Section 1: SORT BY
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text(
+                        text = "SORT BY",
+                        style = MaterialTheme.typography.labelSmall,
+                        fontWeight = FontWeight.Bold,
+                        color = Color(0xFF737685)
+                    )
+                    SearchSortOption.entries.forEach { option ->
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clip(RoundedCornerShape(8.dp))
+                                .clickable { tempSort = option }
+                                .padding(vertical = 4.dp, horizontal = 4.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            Text(
+                                text = option.title,
+                                style = MaterialTheme.typography.bodyMedium,
+                                fontWeight = if (tempSort == option) FontWeight.Bold else FontWeight.Normal,
+                                color = if (tempSort == option) primaryBlue else MaterialTheme.colorScheme.onSurface
+                            )
+                            RadioButton(
+                                selected = tempSort == option,
+                                onClick = { tempSort = option },
+                                colors = RadioButtonDefaults.colors(selectedColor = primaryBlue)
+                            )
+                        }
+                    }
+                }
+
+                HorizontalDivider(color = Color(0xFFE8EDFF))
+
+                // Section 2: TRUST & SAFETY
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text(
+                        text = "TRUST AND SAFETY",
+                        style = MaterialTheme.typography.labelSmall,
+                        fontWeight = FontWeight.Bold,
+                        color = Color(0xFF737685)
+                    )
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(8.dp))
+                            .clickable { tempVerified = !tempVerified }
+                            .padding(vertical = 6.dp, horizontal = 4.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            modifier = Modifier.weight(1f)
+                        ) {
+                            Icon(
+                                Icons.Outlined.VerifiedUser,
+                                contentDescription = null,
+                                tint = if (tempVerified) primaryBlue else Color(0xFF737685),
+                                modifier = Modifier.size(20.dp)
+                            )
+                            Column {
+                                Text(
+                                    text = "Verified profile",
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    fontWeight = if (tempVerified) FontWeight.Bold else FontWeight.Medium,
+                                    color = if (tempVerified) primaryBlue else MaterialTheme.colorScheme.onSurface
+                                )
+                                Text(
+                                    text = "Government ID & licence verified drivers",
+                                    style = MaterialTheme.typography.bodySmall.copy(fontSize = 11.sp),
+                                    color = Color(0xFF737685)
+                                )
+                            }
+                        }
+                        Checkbox(
+                            checked = tempVerified,
+                            onCheckedChange = { tempVerified = it },
+                            colors = CheckboxDefaults.colors(checkedColor = primaryBlue)
+                        )
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            Button(
+                onClick = {
+                    onApply(tempSort, tempVerified)
+                    onDismiss()
+                },
+                colors = ButtonDefaults.buttonColors(containerColor = primaryBlue),
+                shape = RoundedCornerShape(8.dp)
+            ) {
+                Text("Apply", fontWeight = FontWeight.Bold)
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text("Cancel")
+            }
+        }
     )
 }
+
+

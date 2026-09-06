@@ -2,6 +2,8 @@ package com.juko.app.feature.profile.presentation
 
 import androidx.compose.foundation.*
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
@@ -19,7 +21,6 @@ import androidx.compose.ui.graphics.PathEffect
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardCapitalization
-import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import cafe.adriel.voyager.core.screen.Screen
@@ -29,7 +30,8 @@ import com.juko.app.core.presentation.components.JukoButton
 import com.juko.app.core.presentation.theme.LocalSpacing
 
 data class AddVehicleScreen(
-    val onVehicleAdded: (VehicleItem) -> Unit
+    val existingVehicle: VehicleItem? = null,
+    val onVehicleSaved: (VehicleItem) -> Unit
 ) : Screen {
 
     @OptIn(ExperimentalMaterial3Api::class)
@@ -39,18 +41,51 @@ data class AddVehicleScreen(
         val spacing = LocalSpacing.current
         val primaryBlue = Color(0xFF0052CC)
 
-        var photoUri by remember { mutableStateOf<String?>(null) }
-        var selectedBrand by remember { mutableStateOf("Toyota") }
+        val isEditMode = existingVehicle != null
+
+        // Initial values extracted from existingVehicle if in Edit mode
+        val brands = listOf("Toyota", "Honda", "Maruti Suzuki", "Hyundai", "Tata", "Mahindra", "Kia", "MG", "Tesla", "Ford", "Other")
+        
+        var selectedBrand by remember {
+            mutableStateOf(
+                if (existingVehicle != null && existingVehicle.brand.isNotBlank()) {
+                    existingVehicle.brand
+                } else if (existingVehicle != null) {
+                    brands.firstOrNull { existingVehicle.model.startsWith(it, ignoreCase = true) } ?: "Toyota"
+                } else {
+                    "Toyota"
+                }
+            )
+        }
         var brandExpanded by remember { mutableStateOf(false) }
-        val brands = listOf("Toyota", "Honda", "Maruti Suzuki", "Hyundai", "Tata", "Mahindra", "Tesla", "Ford", "Other")
 
-        var model by remember { mutableStateOf("") }
-        var color by remember { mutableStateOf("") }
-        var plateNumber by remember { mutableStateOf("") }
+        var model by remember {
+            mutableStateOf(
+                if (existingVehicle != null) {
+                    existingVehicle.model.removePrefix(selectedBrand).trim()
+                } else {
+                    ""
+                }
+            )
+        }
+        var plateNumber by remember { mutableStateOf(existingVehicle?.plateNumber ?: "") }
+        var seatingCapacity by remember { mutableStateOf(existingVehicle?.seatingCapacity ?: 5) } // 5 or 7
         var hasRoofRack by remember { mutableStateOf(false) }
-        var totalSeats by remember { mutableStateOf(4) }
-        var hasAc by remember { mutableStateOf(true) }
 
+        // Photos list (up to 3 photos)
+        var photos by remember {
+            mutableStateOf(
+                if (existingVehicle != null && existingVehicle.photos.isNotEmpty()) {
+                    existingVehicle.photos
+                } else if (existingVehicle?.imageUrl != null) {
+                    listOf(existingVehicle.imageUrl)
+                } else {
+                    emptyList()
+                }
+            )
+        }
+
+        var validationError by remember { mutableStateOf<String?>(null) }
         val scrollState = rememberScrollState()
 
         Scaffold(
@@ -74,12 +109,6 @@ data class AddVehicleScreen(
                                 verticalAlignment = Alignment.CenterVertically,
                                 horizontalArrangement = Arrangement.spacedBy(spacing.xs)
                             ) {
-                                Icon(
-                                    Icons.Outlined.Menu,
-                                    contentDescription = "Menu",
-                                    tint = primaryBlue,
-                                    modifier = Modifier.size(24.dp)
-                                )
                                 Text(
                                     text = "Juko",
                                     style = MaterialTheme.typography.titleLarge.copy(fontSize = 22.sp),
@@ -88,7 +117,9 @@ data class AddVehicleScreen(
                                 )
                             }
 
-                            IconButton(onClick = { /* Notifications */ }) {
+                            IconButton(onClick = {
+                                navigator.push(com.juko.app.feature.notifications.presentation.NotificationsScreen())
+                            }) {
                                 Icon(
                                     Icons.Outlined.Notifications,
                                     contentDescription = "Notifications",
@@ -125,7 +156,7 @@ data class AddVehicleScreen(
                         )
                     }
                     Text(
-                        text = "Add Vehicle",
+                        text = if (isEditMode) "Edit Vehicle" else "Add Vehicle",
                         style = MaterialTheme.typography.titleLarge,
                         fontWeight = FontWeight.Bold,
                         color = MaterialTheme.colorScheme.onSurface
@@ -144,52 +175,124 @@ data class AddVehicleScreen(
                         modifier = Modifier.padding(spacing.md),
                         verticalArrangement = Arrangement.spacedBy(spacing.md)
                     ) {
-                        // Photo Upload
-                        Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                            Text(
-                                text = "PHOTO",
-                                style = MaterialTheme.typography.labelSmall,
-                                fontWeight = FontWeight.Bold,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-
-                            Box(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .height(140.dp)
-                                    .clip(RoundedCornerShape(12.dp))
-                                    .background(Color(0xFFF1F3FF))
-                                    .drawBehind {
-                                        val stroke = Stroke(
-                                            width = 2.dp.toPx(),
-                                            pathEffect = PathEffect.dashPathEffect(floatArrayOf(12f, 12f), 0f)
-                                        )
-                                        drawRoundRect(color = Color(0xFFC3C6D6), style = stroke)
-                                    }
-                                    .clickable { photoUri = "mock_vehicle_photo" },
-                                contentAlignment = Alignment.Center
+                        // Vehicle Photos Section (Max 3 Photos)
+                        Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
                             ) {
-                                Column(
-                                    horizontalAlignment = Alignment.CenterHorizontally,
-                                    verticalArrangement = Arrangement.spacedBy(4.dp)
-                                ) {
-                                    Icon(
-                                        Icons.Outlined.AddAPhoto,
-                                        contentDescription = null,
-                                        tint = primaryBlue,
-                                        modifier = Modifier.size(36.dp)
-                                    )
-                                    Text(
-                                        text = if (photoUri == null) "Upload Photo" else "Photo Selected ✓",
-                                        style = MaterialTheme.typography.titleSmall,
-                                        fontWeight = FontWeight.Bold,
-                                        color = primaryBlue
-                                    )
-                                    Text(
-                                        text = "JPG or PNG, max 5MB",
-                                        style = MaterialTheme.typography.bodySmall,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                                    )
+                                Text(
+                                    text = "VEHICLE PHOTOS (MAX 3)",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    fontWeight = FontWeight.Bold,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                                Text(
+                                    text = "${photos.size}/3 uploaded",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = if (photos.size == 3) Color(0xFF006844) else primaryBlue,
+                                    fontWeight = FontWeight.Bold
+                                )
+                            }
+
+                            // Photos Row with Thumbnails & Add Slot
+                            LazyRow(
+                                horizontalArrangement = Arrangement.spacedBy(spacing.sm),
+                                verticalAlignment = Alignment.CenterVertically,
+                                modifier = Modifier.padding(vertical = 4.dp)
+                            ) {
+                                // Existing / Added Photos Thumbnails
+                                itemsIndexed(photos) { index, photoUrl ->
+                                    Box(
+                                        modifier = Modifier
+                                            .size(width = 110.dp, height = 90.dp)
+                                    ) {
+                                        Surface(
+                                            modifier = Modifier.fillMaxSize(),
+                                            shape = RoundedCornerShape(10.dp),
+                                            color = Color(0xFFE0E8FF),
+                                            border = BorderStroke(1.dp, primaryBlue.copy(alpha = 0.3f))
+                                        ) {
+                                            Box(contentAlignment = Alignment.Center) {
+                                                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                                    Icon(
+                                                        Icons.Outlined.DirectionsCar,
+                                                        contentDescription = null,
+                                                        tint = primaryBlue,
+                                                        modifier = Modifier.size(32.dp)
+                                                    )
+                                                    Text(
+                                                        text = "Photo ${index + 1}",
+                                                        style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp),
+                                                        color = primaryBlue,
+                                                        fontWeight = FontWeight.Bold
+                                                    )
+                                                }
+                                            }
+                                        }
+
+                                        // Delete Badge
+                                        IconButton(
+                                            onClick = {
+                                                photos = photos.filterIndexed { i, _ -> i != index }
+                                            },
+                                            modifier = Modifier
+                                                .size(24.dp)
+                                                .align(Alignment.TopEnd)
+                                                .offset(x = 4.dp, y = (-4).dp)
+                                                .clip(CircleShape)
+                                                .background(Color(0xFFBA1A1A))
+                                        ) {
+                                            Icon(
+                                                Icons.Outlined.Close,
+                                                contentDescription = "Remove photo",
+                                                tint = Color.White,
+                                                modifier = Modifier.size(14.dp)
+                                            )
+                                        }
+                                    }
+                                }
+
+                                // Add Photo Slot (if less than 3)
+                                if (photos.size < 3) {
+                                    item {
+                                        Box(
+                                            modifier = Modifier
+                                                .size(width = 110.dp, height = 90.dp)
+                                                .clip(RoundedCornerShape(10.dp))
+                                                .background(Color(0xFFF1F3FF))
+                                                .drawBehind {
+                                                    val stroke = Stroke(
+                                                        width = 2.dp.toPx(),
+                                                        pathEffect = PathEffect.dashPathEffect(floatArrayOf(10f, 10f), 0f)
+                                                    )
+                                                    drawRoundRect(color = Color(0xFFC3C6D6), style = stroke)
+                                                }
+                                                .clickable {
+                                                    photos = photos + "mock_car_photo_${photos.size + 1}"
+                                                },
+                                            contentAlignment = Alignment.Center
+                                        ) {
+                                            Column(
+                                                horizontalAlignment = Alignment.CenterHorizontally,
+                                                verticalArrangement = Arrangement.spacedBy(2.dp)
+                                            ) {
+                                                Icon(
+                                                    Icons.Outlined.AddAPhoto,
+                                                    contentDescription = null,
+                                                    tint = primaryBlue,
+                                                    modifier = Modifier.size(24.dp)
+                                                )
+                                                Text(
+                                                    text = "Add Photo",
+                                                    style = MaterialTheme.typography.labelSmall.copy(fontSize = 11.sp),
+                                                    fontWeight = FontWeight.Bold,
+                                                    color = primaryBlue
+                                                )
+                                            }
+                                        }
+                                    }
                                 }
                             }
                         }
@@ -211,7 +314,7 @@ data class AddVehicleScreen(
                                     onValueChange = {},
                                     readOnly = true,
                                     trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = brandExpanded) },
-                                    modifier = Modifier.menuAnchor().fillMaxWidth(),
+                                    modifier = Modifier.menuAnchor(ExposedDropdownMenuAnchorType.PrimaryNotEditable, true).fillMaxWidth(),
                                     shape = RoundedCornerShape(8.dp),
                                     colors = OutlinedTextFieldDefaults.colors(
                                         focusedContainerColor = Color.White,
@@ -248,31 +351,7 @@ data class AddVehicleScreen(
                             OutlinedTextField(
                                 value = model,
                                 onValueChange = { model = it },
-                                placeholder = { Text("e.g. Camry / City / Dzire") },
-                                singleLine = true,
-                                modifier = Modifier.fillMaxWidth(),
-                                shape = RoundedCornerShape(8.dp),
-                                colors = OutlinedTextFieldDefaults.colors(
-                                    focusedContainerColor = Color.White,
-                                    unfocusedContainerColor = Color.White,
-                                    focusedBorderColor = primaryBlue,
-                                    unfocusedBorderColor = Color(0xFFC3C6D6)
-                                )
-                            )
-                        }
-
-                        // Color Input
-                        Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                            Text(
-                                text = "COLOR",
-                                style = MaterialTheme.typography.labelSmall,
-                                fontWeight = FontWeight.Bold,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                            OutlinedTextField(
-                                value = color,
-                                onValueChange = { color = it },
-                                placeholder = { Text("e.g. Silver / White / Blue") },
+                                placeholder = { Text("e.g. Camry / City / Dzire / Creta") },
                                 singleLine = true,
                                 modifier = Modifier.fillMaxWidth(),
                                 shape = RoundedCornerShape(8.dp),
@@ -288,7 +367,7 @@ data class AddVehicleScreen(
                         // Registration Plate
                         Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                             Text(
-                                text = "REGISTRATION PLATE (OPTIONAL)",
+                                text = "REGISTRATION PLATE",
                                 style = MaterialTheme.typography.labelSmall,
                                 fontWeight = FontWeight.Bold,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
@@ -296,7 +375,7 @@ data class AddVehicleScreen(
                             OutlinedTextField(
                                 value = plateNumber,
                                 onValueChange = { plateNumber = it.uppercase() },
-                                placeholder = { Text("ABC-1234") },
+                                placeholder = { Text("e.g. DL-01-AB-1234") },
                                 singleLine = true,
                                 keyboardOptions = KeyboardOptions(
                                     capitalization = KeyboardCapitalization.Characters
@@ -312,10 +391,97 @@ data class AddVehicleScreen(
                             )
                         }
 
+                        // Seating Capacity (Fixed 5-Seater vs 7-Seater Selector)
+                        Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                            Text(
+                                text = "SEATING CAPACITY",
+                                style = MaterialTheme.typography.labelSmall,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.spacedBy(spacing.sm)
+                            ) {
+                                // 5-Seater Option Pill
+                                Surface(
+                                    modifier = Modifier
+                                        .weight(1f)
+                                        .height(48.dp)
+                                        .clickable { seatingCapacity = 5 },
+                                    shape = RoundedCornerShape(10.dp),
+                                    color = if (seatingCapacity == 5) primaryBlue else Color(0xFFF1F3FF),
+                                    border = BorderStroke(
+                                        1.dp,
+                                        if (seatingCapacity == 5) primaryBlue else Color(0xFFC3C6D6)
+                                    )
+                                ) {
+                                    Box(contentAlignment = Alignment.Center) {
+                                        Row(
+                                            verticalAlignment = Alignment.CenterVertically,
+                                            horizontalArrangement = Arrangement.spacedBy(6.dp)
+                                        ) {
+                                            Icon(
+                                                Icons.Outlined.DirectionsCar,
+                                                contentDescription = null,
+                                                tint = if (seatingCapacity == 5) Color.White else MaterialTheme.colorScheme.onSurface,
+                                                modifier = Modifier.size(18.dp)
+                                            )
+                                            Text(
+                                                text = "5-Seater",
+                                                style = MaterialTheme.typography.bodyMedium,
+                                                fontWeight = FontWeight.Bold,
+                                                color = if (seatingCapacity == 5) Color.White else MaterialTheme.colorScheme.onSurface
+                                            )
+                                        }
+                                    }
+                                }
+
+                                // 7-Seater Option Pill
+                                Surface(
+                                    modifier = Modifier
+                                        .weight(1f)
+                                        .height(48.dp)
+                                        .clickable { seatingCapacity = 7 },
+                                    shape = RoundedCornerShape(10.dp),
+                                    color = if (seatingCapacity == 7) primaryBlue else Color(0xFFF1F3FF),
+                                    border = BorderStroke(
+                                        1.dp,
+                                        if (seatingCapacity == 7) primaryBlue else Color(0xFFC3C6D6)
+                                    )
+                                ) {
+                                    Box(contentAlignment = Alignment.Center) {
+                                        Row(
+                                            verticalAlignment = Alignment.CenterVertically,
+                                            horizontalArrangement = Arrangement.spacedBy(6.dp)
+                                        ) {
+                                            Icon(
+                                                Icons.Outlined.AirportShuttle,
+                                                contentDescription = null,
+                                                tint = if (seatingCapacity == 7) Color.White else MaterialTheme.colorScheme.onSurface,
+                                                modifier = Modifier.size(18.dp)
+                                            )
+                                            Text(
+                                                text = "7-Seater",
+                                                style = MaterialTheme.typography.bodyMedium,
+                                                fontWeight = FontWeight.Bold,
+                                                color = if (seatingCapacity == 7) Color.White else MaterialTheme.colorScheme.onSurface
+                                            )
+                                        }
+                                    }
+                                }
+                            }
+                            Text(
+                                text = if (seatingCapacity == 5) "Supports up to 4 passenger seats" else "Supports up to 6 passenger seats",
+                                style = MaterialTheme.typography.labelSmall.copy(fontSize = 11.sp),
+                                color = Color(0xFF737685)
+                            )
+                        }
+
                         // Roof Rack Toggle
                         Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                             Text(
-                                text = "ROOF RACK",
+                                text = "ROOF RACK (OPTIONAL)",
                                 style = MaterialTheme.typography.labelSmall,
                                 fontWeight = FontWeight.Bold,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
@@ -332,7 +498,7 @@ data class AddVehicleScreen(
                                     horizontalArrangement = Arrangement.SpaceBetween
                                 ) {
                                     Text(
-                                        text = "Roof Rack",
+                                        text = "Has luggage roof carrier",
                                         style = MaterialTheme.typography.bodyMedium,
                                         color = MaterialTheme.colorScheme.onSurfaceVariant
                                     )
@@ -344,113 +510,46 @@ data class AddVehicleScreen(
                             }
                         }
 
-                        // Stepper & AC Grid
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.spacedBy(spacing.md)
-                        ) {
-                            // Total Seats Stepper
-                            Column(
-                                modifier = Modifier.weight(1f),
-                                verticalArrangement = Arrangement.spacedBy(4.dp)
-                            ) {
-                                Text(
-                                    text = "TOTAL SEATS",
-                                    style = MaterialTheme.typography.labelSmall,
-                                    fontWeight = FontWeight.Bold,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                                )
-                                Surface(
-                                    modifier = Modifier.fillMaxWidth().height(52.dp),
-                                    shape = RoundedCornerShape(8.dp),
-                                    color = Color(0xFFF1F3FF),
-                                    border = BorderStroke(1.dp, Color(0xFFC3C6D6))
-                                ) {
-                                    Row(
-                                        modifier = Modifier.padding(horizontal = 4.dp),
-                                        verticalAlignment = Alignment.CenterVertically,
-                                        horizontalArrangement = Arrangement.SpaceBetween
-                                    ) {
-                                        IconButton(
-                                            onClick = { if (totalSeats > 1) totalSeats-- },
-                                            modifier = Modifier.size(36.dp)
-                                        ) {
-                                            Icon(
-                                                Icons.Outlined.Remove,
-                                                contentDescription = "Decrease Seats",
-                                                tint = primaryBlue
-                                            )
-                                        }
-                                        Text(
-                                            text = totalSeats.toString(),
-                                            style = MaterialTheme.typography.titleMedium,
-                                            fontWeight = FontWeight.Bold
-                                        )
-                                        IconButton(
-                                            onClick = { if (totalSeats < 8) totalSeats++ },
-                                            modifier = Modifier.size(36.dp)
-                                        ) {
-                                            Icon(
-                                                Icons.Outlined.Add,
-                                                contentDescription = "Increase Seats",
-                                                tint = primaryBlue
-                                            )
-                                        }
-                                    }
-                                }
-                            }
-
-                            // AC Toggle
-                            Column(
-                                modifier = Modifier.weight(1f),
-                                verticalArrangement = Arrangement.spacedBy(4.dp)
-                            ) {
-                                Text(
-                                    text = "AIR CONDITIONING",
-                                    style = MaterialTheme.typography.labelSmall,
-                                    fontWeight = FontWeight.Bold,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                                )
-                                Surface(
-                                    modifier = Modifier.fillMaxWidth().height(52.dp),
-                                    shape = RoundedCornerShape(8.dp),
-                                    color = Color(0xFFF1F3FF),
-                                    border = BorderStroke(1.dp, Color(0xFFC3C6D6))
-                                ) {
-                                    Row(
-                                        modifier = Modifier.padding(horizontal = spacing.md),
-                                        verticalAlignment = Alignment.CenterVertically,
-                                        horizontalArrangement = Arrangement.SpaceBetween
-                                    ) {
-                                        Text(
-                                            text = "AC",
-                                            style = MaterialTheme.typography.bodyMedium,
-                                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                                        )
-                                        Switch(
-                                            checked = hasAc,
-                                            onCheckedChange = { hasAc = it }
-                                        )
-                                    }
-                                }
-                            }
+                        // Validation Error if any
+                        if (validationError != null) {
+                            Text(
+                                text = validationError ?: "",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.error,
+                                modifier = Modifier.padding(top = 2.dp)
+                            )
                         }
                     }
                 }
 
-                // Save Car Button
+                // Save / Update Vehicle Button
                 JukoButton(
-                    text = "Save Car",
+                    text = if (isEditMode) "Update Vehicle" else "Save Car",
                     onClick = {
-                        val finalModel = if (model.isNotBlank()) "$selectedBrand ${model.trim()}" else "$selectedBrand Vehicle"
-                        val finalPlate = if (plateNumber.isNotBlank()) plateNumber.trim() else "NEW-0001"
-                        val newCar = VehicleItem(
-                            id = "veh_${finalModel.hashCode()}",
-                            model = finalModel,
-                            color = color.ifBlank { "Silver" }.trim(),
-                            plateNumber = finalPlate
+                        if (model.isBlank()) {
+                            validationError = "Please enter the vehicle model"
+                            return@JukoButton
+                        }
+                        if (plateNumber.isBlank()) {
+                            validationError = "Please enter the registration plate number"
+                            return@JukoButton
+                        }
+
+                        // Concatenate Brand + Model
+                        val finalModelName = "${selectedBrand.trim()} ${model.trim()}"
+                        val finalPlate = plateNumber.trim().uppercase()
+
+                        val vehicleItem = VehicleItem(
+                            id = existingVehicle?.id ?: "veh_${finalModelName.hashCode()}_${finalPlate.hashCode()}",
+                            brand = selectedBrand,
+                            model = finalModelName,
+                            plateNumber = finalPlate,
+                            seatingCapacity = seatingCapacity,
+                            photos = photos,
+                            imageUrl = photos.firstOrNull() ?: existingVehicle?.imageUrl
                         )
-                        onVehicleAdded(newCar)
+
+                        onVehicleSaved(vehicleItem)
                         navigator.pop()
                     },
                     modifier = Modifier.fillMaxWidth().padding(top = spacing.sm)

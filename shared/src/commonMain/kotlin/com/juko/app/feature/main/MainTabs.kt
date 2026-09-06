@@ -67,7 +67,7 @@ internal object YourRidesTab : Tab {
 
     @Composable
     override fun Content() {
-        com.juko.app.feature.rides.presentation.MyRidesScreen().Content()
+        Navigator(com.juko.app.feature.rides.presentation.MyRidesScreen())
     }
 }
 

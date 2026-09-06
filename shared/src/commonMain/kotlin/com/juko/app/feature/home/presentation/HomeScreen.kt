@@ -34,78 +34,92 @@ import com.juko.app.core.presentation.theme.LocalSpacing
 import com.juko.app.feature.search.presentation.SearchResultsScreen
 import kotlinx.datetime.toLocalDateTime
 
+import androidx.compose.runtime.rememberCoroutineScope
+import com.juko.app.feature.sidebar.presentation.LocalDrawerController
+
 class HomeScreen : Screen {
     @Composable
     override fun Content() {
         val navigator = LocalNavigator.currentOrThrow
         val spacing = LocalSpacing.current
+        val drawerController = LocalDrawerController.current
         
         Scaffold(
             topBar = {
-                HomeHeader()
+                HomeHeader(
+                    onMenuClick = {
+                        drawerController.open()
+                    },
+                    onNotificationClick = {
+                        navigator.push(com.juko.app.feature.notifications.presentation.NotificationsScreen())
+                    }
+                )
             },
-            containerColor = MaterialTheme.colorScheme.background,
-            contentWindowInsets = WindowInsets(0, 0, 0, 0)
-        ) { padding ->
-            LazyColumn(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(padding)
-                    .padding(horizontal = spacing.edgeMargin)
-            ) {
-                item {
-                    Spacer(modifier = Modifier.height(8.dp))
-                    HeroSection()
-                }
-                
-                item {
-                    Spacer(modifier = Modifier.height(12.dp))
-                    SearchCard(
-                        onSearch = { from, to, date, passengers ->
-                            navigator.push(
-                                SearchResultsScreen(
-                                    origin = from,
-                                    destination = to,
-                                    date = date,
-                                    passengers = passengers
+                containerColor = MaterialTheme.colorScheme.background,
+                contentWindowInsets = WindowInsets(0, 0, 0, 0)
+            ) { padding ->
+                LazyColumn(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(padding)
+                        .padding(horizontal = spacing.edgeMargin)
+                ) {
+                    item {
+                        Spacer(modifier = Modifier.height(8.dp))
+                        HeroSection()
+                    }
+                    
+                    item {
+                        Spacer(modifier = Modifier.height(12.dp))
+                        SearchCard(
+                            onSearch = { from, to, date, passengers ->
+                                navigator.push(
+                                    SearchResultsScreen(
+                                        origin = from,
+                                        destination = to,
+                                        date = date,
+                                        passengers = passengers
+                                    )
                                 )
-                            )
-                        }
-                    )
-                }
-                
-                item {
-                    Spacer(modifier = Modifier.height(spacing.lg))
-                    RecentSearchesHeader()
-                }
-                
-                items(recentSearchList) { search ->
-                    RecentSearchCard(
-                        search = search,
-                        onClick = {
-                            navigator.push(
-                                SearchResultsScreen(
-                                    origin = search.from,
-                                    destination = search.to,
-                                    date = "Today",
-                                    passengers = search.passengers
+                            }
+                        )
+                    }
+                    
+                    item {
+                        Spacer(modifier = Modifier.height(spacing.lg))
+                        RecentSearchesHeader()
+                    }
+                    
+                    items(recentSearchList) { search ->
+                        RecentSearchCard(
+                            search = search,
+                            onClick = {
+                                navigator.push(
+                                    SearchResultsScreen(
+                                        origin = search.from,
+                                        destination = search.to,
+                                        date = "Today",
+                                        passengers = search.passengers
+                                    )
                                 )
-                            )
-                        }
-                    )
-                    Spacer(modifier = Modifier.height(spacing.md))
-                }
-                
-                item {
-                    Spacer(modifier = Modifier.height(spacing.xl))
+                            }
+                        )
+                        Spacer(modifier = Modifier.height(spacing.md))
+                    }
+                    
+                    item {
+                        Spacer(modifier = Modifier.height(spacing.xl))
+                    }
                 }
             }
         }
     }
-}
 
 @Composable
-private fun HomeHeader() {
+private fun HomeHeader(
+    onMenuClick: () -> Unit = {},
+    onNotificationClick: () -> Unit = {}
+) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -116,7 +130,7 @@ private fun HomeHeader() {
         horizontalArrangement = Arrangement.SpaceBetween
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            IconButton(onClick = { /* TODO */ }) {
+            IconButton(onClick = onMenuClick) {
                 Icon(Icons.Outlined.Menu, contentDescription = "Menu")
             }
             Spacer(modifier = Modifier.width(8.dp))
@@ -129,7 +143,7 @@ private fun HomeHeader() {
         }
         
         IconButton(
-            onClick = { /* TODO */ },
+            onClick = onNotificationClick,
             modifier = Modifier.clip(CircleShape).background(MaterialTheme.colorScheme.surface)
         ) {
             Icon(Icons.Outlined.Notifications, contentDescription = "Notifications")
@@ -167,7 +181,6 @@ private fun SearchCard(
     var passengers by remember { mutableStateOf(1) }
 
     var showDatePicker by remember { mutableStateOf(false) }
-    var showPassengerDropdown by remember { mutableStateOf(false) }
     val datePickerState = rememberDatePickerState()
 
     if (showDatePicker) {
@@ -217,7 +230,10 @@ private fun SearchCard(
             )
             HorizontalDivider(modifier = Modifier.padding(vertical = spacing.md), color = MaterialTheme.colorScheme.outlineVariant)
             
-            Row(modifier = Modifier.fillMaxWidth()) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
                 Box(modifier = Modifier.weight(1f)) {
                     SearchClickableRow(
                         label = "DATE",
@@ -227,27 +243,73 @@ private fun SearchCard(
                         placeholder = "Select date"
                     )
                 }
-                Box(modifier = Modifier.width(1.dp).height(40.dp).background(MaterialTheme.colorScheme.outlineVariant).align(Alignment.CenterVertically))
-                Box(modifier = Modifier.weight(1f).padding(start = spacing.sm)) {
-                    SearchClickableRow(
-                        label = "PASSENGERS",
-                        icon = Icons.Outlined.Person,
-                        value = if (passengers == 1) "1 passenger" else "$passengers passengers",
-                        onClick = { showPassengerDropdown = true },
-                        placeholder = "1 passenger"
+                Box(
+                    modifier = Modifier
+                        .width(1.dp)
+                        .height(44.dp)
+                        .background(MaterialTheme.colorScheme.outlineVariant)
+                )
+                Column(
+                    modifier = Modifier
+                        .weight(1f)
+                        .padding(start = spacing.sm)
+                        .padding(vertical = 4.dp),
+                    verticalArrangement = Arrangement.spacedBy(4.dp)
+                ) {
+                    Text(
+                        text = "PASSENGERS",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.secondary,
+                        fontWeight = FontWeight.Bold
                     )
-                    
-                    DropdownMenu(
-                        expanded = showPassengerDropdown,
-                        onDismissRequest = { showPassengerDropdown = false }
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(6.dp)
                     ) {
-                        (1..8).forEach { count ->
-                            DropdownMenuItem(
-                                text = { Text(if (count == 1) "1 passenger" else "$count passengers") },
-                                onClick = {
-                                    passengers = count
-                                    showPassengerDropdown = false
-                                }
+                        // Decrease Button
+                        Box(
+                            modifier = Modifier
+                                .size(28.dp)
+                                .clip(CircleShape)
+                                .background(if (passengers > 1) Color(0xFFF1F3FF) else Color(0xFFF9F9FF))
+                                .border(
+                                    1.dp,
+                                    if (passengers > 1) MaterialTheme.colorScheme.primary.copy(alpha = 0.5f) else Color(0xFFE0E8FF),
+                                    CircleShape
+                                )
+                                .clickable(enabled = passengers > 1) { passengers-- },
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                Icons.Outlined.Remove,
+                                contentDescription = "Decrease passengers",
+                                modifier = Modifier.size(16.dp),
+                                tint = if (passengers > 1) MaterialTheme.colorScheme.primary else Color(0xFFC3C6D6)
+                            )
+                        }
+
+                        // Passenger Count Text
+                        Text(
+                            text = if (passengers == 1) "1 seat" else "$passengers seats",
+                            style = MaterialTheme.typography.bodyMedium,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
+
+                        // Increase Button
+                        Box(
+                            modifier = Modifier
+                                .size(28.dp)
+                                .clip(CircleShape)
+                                .background(if (passengers < 6) MaterialTheme.colorScheme.primary else Color(0xFFE0E8FF))
+                                .clickable(enabled = passengers < 6) { passengers++ },
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                Icons.Outlined.Add,
+                                contentDescription = "Increase passengers",
+                                modifier = Modifier.size(16.dp),
+                                tint = if (passengers < 6) Color.White else Color(0xFF737685)
                             )
                         }
                     }

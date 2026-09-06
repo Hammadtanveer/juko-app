@@ -11,6 +11,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.ChatBubbleOutline
 import androidx.compose.material.icons.outlined.EditNote
+import androidx.compose.material.icons.outlined.Menu
 import androidx.compose.material.icons.outlined.Notifications
 import androidx.compose.material.icons.outlined.Search
 import androidx.compose.material3.*
@@ -28,6 +29,7 @@ import cafe.adriel.voyager.navigator.LocalNavigator
 import cafe.adriel.voyager.navigator.currentOrThrow
 import com.juko.app.core.presentation.components.JukoAvatar
 import com.juko.app.core.presentation.theme.LocalSpacing
+import com.juko.app.feature.sidebar.presentation.LocalDrawerController
 
 data class ConversationItem(
     val id: String,
@@ -46,6 +48,7 @@ class InboxScreen : Screen {
     override fun Content() {
         val navigator = LocalNavigator.currentOrThrow
         val spacing = LocalSpacing.current
+        val drawerController = LocalDrawerController.current
         val primaryBlue = Color(0xFF0052CC)
 
         val conversations = remember { getInitialConversations() }
@@ -66,13 +69,28 @@ class InboxScreen : Screen {
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.SpaceBetween
                     ) {
-                        Text(
-                            text = "Juko",
-                            style = MaterialTheme.typography.titleLarge.copy(fontSize = 22.sp),
-                            fontWeight = FontWeight.Bold,
-                            color = primaryBlue
-                        )
-                        IconButton(onClick = { /* Notifications */ }) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(spacing.xs)
+                        ) {
+                            IconButton(onClick = { drawerController.open() }) {
+                                Icon(
+                                    Icons.Outlined.Menu,
+                                    contentDescription = "Open Drawer",
+                                    tint = primaryBlue,
+                                    modifier = Modifier.size(24.dp)
+                                )
+                            }
+                            Text(
+                                text = "Inbox",
+                                style = MaterialTheme.typography.titleLarge.copy(fontSize = 22.sp),
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.onSurface
+                            )
+                        }
+                        IconButton(onClick = {
+                            navigator.push(com.juko.app.feature.notifications.presentation.NotificationsScreen())
+                        }) {
                             Icon(
                                 Icons.Outlined.Notifications,
                                 contentDescription = "Notifications",
