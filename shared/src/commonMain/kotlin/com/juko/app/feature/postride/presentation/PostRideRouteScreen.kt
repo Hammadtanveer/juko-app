@@ -13,6 +13,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
@@ -29,6 +30,7 @@ import cafe.adriel.voyager.navigator.currentOrThrow
 import com.juko.app.core.presentation.components.JukoButton
 import com.juko.app.core.presentation.components.JukoGhostButton
 import com.juko.app.core.presentation.theme.LocalSpacing
+import com.juko.app.feature.sidebar.presentation.LocalDrawerController
 import kotlinx.datetime.toLocalDateTime
 
 class PostRideRouteScreen : Screen {
@@ -38,12 +40,20 @@ class PostRideRouteScreen : Screen {
         val state by viewModel.state.collectAsState()
         val navigator = LocalNavigator.currentOrThrow
         val spacing = LocalSpacing.current
+        val drawerController = LocalDrawerController.current
         val scrollState = rememberScrollState()
+
+        var showIncompleteProfileDialog by remember { mutableStateOf(false) }
 
         Scaffold(
             topBar = {
                 Column(modifier = Modifier.background(MaterialTheme.colorScheme.surface)) {
-                    PostRideHeader(onBack = { navigator.pop() })
+                    PostRideHeader(
+                        onMenuOrBack = {
+                            if (navigator.canPop) navigator.pop() else drawerController.open()
+                        },
+                        isBack = navigator.canPop
+                    )
                     StepIndicator(step = 1)
                 }
             },
@@ -61,7 +71,13 @@ class PostRideRouteScreen : Screen {
                     ) {
                         JukoButton(
                             text = "Continue to Ride Details",
-                            onClick = { navigator.push(PostRideDetailsScreen(viewModel)) },
+                            onClick = {
+                                if (!com.juko.app.feature.profile.domain.DriverProfileManager.isProfileCompleteForPublishing()) {
+                                    showIncompleteProfileDialog = true
+                                } else {
+                                    navigator.push(PostRideDetailsScreen(viewModel))
+                                }
+                            },
                             modifier = Modifier.fillMaxWidth().height(56.dp)
                         )
                         JukoGhostButton(
@@ -88,11 +104,150 @@ class PostRideRouteScreen : Screen {
                 Spacer(modifier = Modifier.height(spacing.xl))
             }
         }
+
+        if (showIncompleteProfileDialog) {
+            ProfileIncompleteDialog(
+                onDismiss = {
+                    showIncompleteProfileDialog = false
+                },
+                onCompleteClick = {
+                    showIncompleteProfileDialog = false
+                    navigator.push(com.juko.app.feature.profile.presentation.ProfileScreen())
+                }
+            )
+        }
     }
 }
 
 @Composable
-private fun PostRideHeader(onBack: () -> Unit) {
+private fun ProfileIncompleteDialog(
+    onDismiss: () -> Unit,
+    onCompleteClick: () -> Unit
+) {
+    val spacing = LocalSpacing.current
+    val primaryBlue = Color(0xFF0052CC)
+    val manager = com.juko.app.feature.profile.domain.DriverProfileManager
+
+    val isPhoneValid = manager.phoneNumber.length == 10
+    val isLicenceValid = manager.frontLicenceUri != null || manager.backLicenceUri != null
+    val isVehicleValid = manager.vehicles.isNotEmpty()
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        icon = {
+            Box(
+                modifier = Modifier
+                    .size(52.dp)
+                    .clip(CircleShape)
+                    .background(Color(0xFFFEF3C7)),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    Icons.Outlined.WarningAmber,
+                    contentDescription = null,
+                    tint = Color(0xFFD97706),
+                    modifier = Modifier.size(28.dp)
+                )
+            }
+        },
+        title = {
+            Text(
+                text = "Complete Driver Profile First",
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Bold,
+                textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                modifier = Modifier.fillMaxWidth()
+            )
+        },
+        text = {
+            Column(
+                modifier = Modifier.fillMaxWidth(),
+                verticalArrangement = Arrangement.spacedBy(spacing.sm)
+            ) {
+                Text(
+                    text = "To publish a ride and accept passengers, please complete your driver profile requirements:",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+
+                Surface(
+                    shape = RoundedCornerShape(12.dp),
+                    color = Color(0xFFF1F3FF),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Column(
+                        modifier = Modifier.padding(spacing.md),
+                        verticalArrangement = Arrangement.spacedBy(spacing.xs)
+                    ) {
+                        RequirementItem(
+                            title = "10-Digit Verified Phone",
+                            isComplete = isPhoneValid
+                        )
+                        RequirementItem(
+                            title = "Driver Licence Photo",
+                            isComplete = isLicenceValid
+                        )
+                        RequirementItem(
+                            title = "Registered Vehicle Details",
+                            isComplete = isVehicleValid
+                        )
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            Button(
+                onClick = onCompleteClick,
+                colors = ButtonDefaults.buttonColors(containerColor = primaryBlue),
+                shape = RoundedCornerShape(8.dp),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Icon(Icons.Outlined.Edit, contentDescription = null, modifier = Modifier.size(16.dp))
+                Spacer(modifier = Modifier.width(6.dp))
+                Text("Complete Profile Now", fontWeight = FontWeight.Bold)
+            }
+        },
+        dismissButton = {
+            OutlinedButton(
+                onClick = onDismiss,
+                shape = RoundedCornerShape(8.dp),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Text("Not Now, Go Back")
+            }
+        }
+    )
+}
+
+@Composable
+private fun RequirementItem(
+    title: String,
+    isComplete: Boolean
+) {
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
+        Icon(
+            if (isComplete) Icons.Outlined.CheckCircle else Icons.Outlined.Cancel,
+            contentDescription = null,
+            tint = if (isComplete) Color(0xFF006844) else Color(0xFFBA1A1A),
+            modifier = Modifier.size(18.dp)
+        )
+        Text(
+            text = title,
+            style = MaterialTheme.typography.bodyMedium,
+            fontWeight = if (isComplete) FontWeight.Medium else FontWeight.SemiBold,
+            color = if (isComplete) Color(0xFF006844) else Color(0xFFBA1A1A)
+        )
+    }
+}
+
+@Composable
+private fun PostRideHeader(
+    onMenuOrBack: () -> Unit,
+    isBack: Boolean
+) {
     val spacing = LocalSpacing.current
     Row(
         modifier = Modifier
@@ -104,12 +259,16 @@ private fun PostRideHeader(onBack: () -> Unit) {
         horizontalArrangement = Arrangement.SpaceBetween
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            IconButton(onClick = onBack) {
-                Icon(Icons.AutoMirrored.Outlined.ArrowBack, contentDescription = "Back")
+            IconButton(onClick = onMenuOrBack) {
+                if (isBack) {
+                    Icon(Icons.AutoMirrored.Outlined.ArrowBack, contentDescription = "Back")
+                } else {
+                    Icon(Icons.Outlined.Menu, contentDescription = "Menu", tint = MaterialTheme.colorScheme.primary)
+                }
             }
             Spacer(modifier = Modifier.width(spacing.xs))
             Text(
-                text = "JUKO",
+                text = "Publish Ride",
                 style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.Bold,
                 color = MaterialTheme.colorScheme.primary

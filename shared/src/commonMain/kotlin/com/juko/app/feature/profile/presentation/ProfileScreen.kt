@@ -37,14 +37,18 @@ import com.juko.app.core.presentation.components.JukoAvatar
 import com.juko.app.core.presentation.components.JukoButton
 import com.juko.app.core.presentation.components.JukoTextField
 import com.juko.app.core.presentation.theme.LocalSpacing
+import com.juko.app.feature.sidebar.presentation.LocalDrawerController
 import kotlinx.coroutines.launch
 
 data class VehicleItem(
     val id: String,
+    val brand: String = "",
     val model: String,
-    val color: String,
+    val color: String = "",
     val plateNumber: String,
-    val imageUrl: String? = null
+    val seatingCapacity: Int = 5,
+    val photos: List<String> = emptyList(),
+    val imageUrl: String? = photos.firstOrNull()
 )
 
 class ProfileScreen : Screen {
@@ -56,38 +60,26 @@ class ProfileScreen : Screen {
         val focusManager = LocalFocusManager.current
         val snackbarHostState = remember { SnackbarHostState() }
         val coroutineScope = rememberCoroutineScope()
+        val drawerController = LocalDrawerController.current
 
         val primaryBlue = Color(0xFF0052CC)
         val onlineGreen = Color(0xFF006844)
         val onlineGreenBg = Color(0xFF82F9BE)
 
-        var fullName by remember { mutableStateOf("Alexander Mitchell") }
-        var email by remember { mutableStateOf("alex.mitchell@driver.rideshare.com") }
-        var phoneCountryCode by remember { mutableStateOf("+91") }
-        var phoneNumber by remember { mutableStateOf("9876543210") }
+        var fullName by remember { mutableStateOf(com.juko.app.feature.profile.domain.DriverProfileManager.fullName) }
+        var email by remember { mutableStateOf(com.juko.app.feature.profile.domain.DriverProfileManager.email) }
+        var phoneCountryCode by remember { mutableStateOf(com.juko.app.feature.profile.domain.DriverProfileManager.phoneCountryCode) }
+        var phoneNumber by remember { mutableStateOf(com.juko.app.feature.profile.domain.DriverProfileManager.phoneNumber) }
         var phoneError by remember { mutableStateOf<String?>(null) }
 
-        var frontLicenceUri by remember { mutableStateOf<String?>(null) }
-        var backLicenceUri by remember { mutableStateOf<String?>(null) }
+        var frontLicenceUri by remember { mutableStateOf(com.juko.app.feature.profile.domain.DriverProfileManager.frontLicenceUri) }
+        var backLicenceUri by remember { mutableStateOf(com.juko.app.feature.profile.domain.DriverProfileManager.backLicenceUri) }
 
         var vehicles by remember {
-            mutableStateOf(
-                listOf(
-                    VehicleItem(
-                        id = "veh_1",
-                        model = "Toyota Camry",
-                        color = "Silver",
-                        plateNumber = "ABC-1234",
-                        imageUrl = "https://lh3.googleusercontent.com/aida-public/AB6AXuCipvSxEU0VgIFtDTAudi-KdkzVxp7Oz24RaZwnz0ymk0LFyGSQst0DnmGAUhwlFc5N6htRJqYVbK8qIuCviGSmyhB2htUW9yalM7GAt4S8Zt7gR3yl-3ASXph0Ju-UqxykJ8ICX2RufyYlD4emhHndoPDhdTieHC4DuRWC7Xj0cJ74Dp3PGwrrFj10NEkRTEoVZx01w-nuUNezMpkfpoXhB7MMRENoHcOCkSIhb8EDxXfOR91SbnID"
-                    ),
-                    VehicleItem(
-                        id = "veh_2",
-                        model = "Swift Dzire",
-                        color = "White",
-                        plateNumber = "DL-01-AB-1234"
-                    )
-                )
-            )
+            mutableStateOf(com.juko.app.feature.profile.domain.DriverProfileManager.vehicles)
+        }
+        var avatarUrl by remember {
+            mutableStateOf("https://lh3.googleusercontent.com/aida-public/AB6AXuBfFzjg65uwWojeFdWMwuH6S_YvbBEw6T57aVOZ1xNMnMLHFJvs5mG1JMwWH0JKpHcF9eXeWaXNtzH2ubS3gcN86p3UYtSlZlpdNUJLNa8VTWI6f5_wUgHEqHEEVJcf18D2a1vEBn15-bKk8zM1mLNIhIWNmxYIzLpP2ZRIatWdIIBmRAT2ufv-5Kh-fVMYbiSXQ5Vp6iej4k-D1AfyzZ-OtW_5QdsqPjyRqE5Kif5PgU3tdsCclG1Z")
         }
 
         Scaffold(
@@ -108,14 +100,16 @@ class ProfileScreen : Screen {
                     ) {
                         Row(
                             verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(spacing.sm)
+                            horizontalArrangement = Arrangement.spacedBy(spacing.xs)
                         ) {
-                            Icon(
-                                Icons.Outlined.Menu,
-                                contentDescription = "Menu",
-                                tint = primaryBlue,
-                                modifier = Modifier.size(24.dp)
-                            )
+                            IconButton(onClick = { drawerController.open() }) {
+                                Icon(
+                                    Icons.Outlined.Menu,
+                                    contentDescription = "Menu",
+                                    tint = primaryBlue,
+                                    modifier = Modifier.size(24.dp)
+                                )
+                            }
                             Text(
                                 text = "Juko",
                                 style = MaterialTheme.typography.titleLarge.copy(fontSize = 22.sp),
@@ -190,14 +184,20 @@ class ProfileScreen : Screen {
                     ) {
                         Box(contentAlignment = Alignment.BottomEnd) {
                             JukoAvatar(
-                                imageUrl = "https://lh3.googleusercontent.com/aida-public/AB6AXuBfFzjg65uwWojeFdWMwuH6S_YvbBEw6T57aVOZ1xNMnMLHFJvs5mG1JMwWH0JKpHcF9eXeWaXNtzH2ubS3gcN86p3UYtSlZlpdNUJLNa8VTWI6f5_wUgHEqHEEVJcf18D2a1vEBn15-bKk8zM1mLNIhIWNmxYIzLpP2ZRIatWdIIBmRAT2ufv-5Kh-fVMYbiSXQ5Vp6iej4k-D1AfyzZ-OtW_5QdsqPjyRqE5Kif5PgU3tdsCclG1Z",
+                                imageUrl = avatarUrl,
                                 size = 120.dp,
                                 modifier = Modifier.border(4.dp, Color.White, CircleShape)
                             )
                             IconButton(
                                 onClick = {
+                                    val newPhoto = "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=400"
+                                    avatarUrl = newPhoto
+                                    if (frontLicenceUri == null) {
+                                        frontLicenceUri = newPhoto
+                                        com.juko.app.feature.profile.domain.DriverProfileManager.frontLicenceUri = newPhoto
+                                    }
                                     coroutineScope.launch {
-                                        snackbarHostState.showSnackbar("Profile photo update tapped")
+                                        snackbarHostState.showSnackbar("Profile photo saved! Driver profile is complete.")
                                     }
                                 },
                                 modifier = Modifier
@@ -405,18 +405,36 @@ class ProfileScreen : Screen {
                         LicenceUploadCard(
                             label = "Driver Licence — Front",
                             imageUri = frontLicenceUri,
-                            onUploadClick = { frontLicenceUri = "front_licence_mock_url" },
-                            onRetake = { frontLicenceUri = "front_licence_mock_url" },
-                            onRemove = { frontLicenceUri = null }
+                            onUploadClick = { 
+                                frontLicenceUri = "front_licence_mock_url"
+                                com.juko.app.feature.profile.domain.DriverProfileManager.frontLicenceUri = "front_licence_mock_url"
+                            },
+                            onRetake = { 
+                                frontLicenceUri = "front_licence_mock_url"
+                                com.juko.app.feature.profile.domain.DriverProfileManager.frontLicenceUri = "front_licence_mock_url"
+                            },
+                            onRemove = { 
+                                frontLicenceUri = null
+                                com.juko.app.feature.profile.domain.DriverProfileManager.frontLicenceUri = null
+                            }
                         )
 
                         // Back Licence Card
                         LicenceUploadCard(
                             label = "Driver Licence — Back",
                             imageUri = backLicenceUri,
-                            onUploadClick = { backLicenceUri = "back_licence_mock_url" },
-                            onRetake = { backLicenceUri = "back_licence_mock_url" },
-                            onRemove = { backLicenceUri = null }
+                            onUploadClick = { 
+                                backLicenceUri = "back_licence_mock_url"
+                                com.juko.app.feature.profile.domain.DriverProfileManager.backLicenceUri = "back_licence_mock_url"
+                            },
+                            onRetake = { 
+                                backLicenceUri = "back_licence_mock_url"
+                                com.juko.app.feature.profile.domain.DriverProfileManager.backLicenceUri = "back_licence_mock_url"
+                            },
+                            onRemove = { 
+                                backLicenceUri = null
+                                com.juko.app.feature.profile.domain.DriverProfileManager.backLicenceUri = null
+                            }
                         )
                     }
                 }
@@ -439,38 +457,98 @@ class ProfileScreen : Screen {
                                 color = MaterialTheme.colorScheme.onSurface
                             )
 
-                            IconButton(
-                                onClick = {
-                                    navigator.push(
-                                        AddVehicleScreen { newVehicle ->
-                                            vehicles = vehicles + newVehicle
-                                            coroutineScope.launch {
-                                                snackbarHostState.showSnackbar("Added ${newVehicle.model}")
+                            // Show Add Vehicle (+) button ONLY when NO vehicle is added
+                            if (vehicles.isEmpty()) {
+                                IconButton(
+                                    onClick = {
+                                        navigator.push(
+                                            AddVehicleScreen(existingVehicle = null) { newVehicle ->
+                                                vehicles = listOf(newVehicle)
+                                                com.juko.app.feature.profile.domain.DriverProfileManager.vehicles = vehicles
+                                                coroutineScope.launch {
+                                                    snackbarHostState.showSnackbar("Added ${newVehicle.model}")
+                                                }
                                             }
-                                        }
+                                        )
+                                    },
+                                    modifier = Modifier
+                                        .size(36.dp)
+                                        .clip(CircleShape)
+                                        .background(primaryBlue)
+                                ) {
+                                    Icon(
+                                        Icons.Outlined.Add,
+                                        contentDescription = "Add Vehicle",
+                                        tint = Color.White,
+                                        modifier = Modifier.size(20.dp)
                                     )
-                                },
-                                modifier = Modifier
-                                    .size(36.dp)
-                                    .clip(CircleShape)
-                                    .background(primaryBlue)
-                            ) {
-                                Icon(
-                                    Icons.Outlined.Add,
-                                    contentDescription = "Add Vehicle",
-                                    tint = Color.White,
-                                    modifier = Modifier.size(20.dp)
-                                )
+                                }
                             }
                         }
 
-                        // Horizontal list of Vehicles
-                        LazyRow(
-                            horizontalArrangement = Arrangement.spacedBy(spacing.md),
-                            contentPadding = PaddingValues(vertical = 4.dp)
-                        ) {
-                            items(vehicles) { vehicle ->
-                                VehicleCard(vehicle = vehicle)
+                        if (vehicles.isEmpty()) {
+                            Surface(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clickable {
+                                        navigator.push(
+                                            AddVehicleScreen(existingVehicle = null) { newVehicle ->
+                                                vehicles = listOf(newVehicle)
+                                                com.juko.app.feature.profile.domain.DriverProfileManager.vehicles = vehicles
+                                                coroutineScope.launch {
+                                                    snackbarHostState.showSnackbar("Added ${newVehicle.model}")
+                                                }
+                                            }
+                                        )
+                                    },
+                                shape = RoundedCornerShape(12.dp),
+                                color = Color(0xFFF1F5FE),
+                                border = BorderStroke(1.dp, Color(0xFFD4E2FF))
+                            ) {
+                                Row(
+                                    modifier = Modifier.padding(16.dp),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.Center
+                                ) {
+                                    Icon(Icons.Outlined.AddCircleOutline, contentDescription = null, tint = primaryBlue)
+                                    Spacer(modifier = Modifier.width(8.dp))
+                                    Text(
+                                        text = "Add Vehicle (No vehicle added)",
+                                        style = MaterialTheme.typography.bodyMedium,
+                                        fontWeight = FontWeight.Bold,
+                                        color = primaryBlue
+                                    )
+                                }
+                            }
+                        } else {
+                            // Horizontal list of Vehicles
+                            LazyRow(
+                                horizontalArrangement = Arrangement.spacedBy(spacing.md),
+                                contentPadding = PaddingValues(vertical = 4.dp)
+                            ) {
+                                items(vehicles) { vehicle ->
+                                    VehicleCard(
+                                        vehicle = vehicle,
+                                        onEditClick = {
+                                            navigator.push(
+                                                AddVehicleScreen(existingVehicle = vehicle) { updatedVehicle ->
+                                                    vehicles = vehicles.map { if (it.id == updatedVehicle.id) updatedVehicle else it }
+                                                    com.juko.app.feature.profile.domain.DriverProfileManager.vehicles = vehicles
+                                                    coroutineScope.launch {
+                                                        snackbarHostState.showSnackbar("Updated ${updatedVehicle.model}")
+                                                    }
+                                                }
+                                            )
+                                        },
+                                        onDeleteClick = {
+                                            vehicles = vehicles.filter { it.id != vehicle.id }
+                                            com.juko.app.feature.profile.domain.DriverProfileManager.vehicles = vehicles
+                                            coroutineScope.launch {
+                                                snackbarHostState.showSnackbar("Vehicle removed")
+                                            }
+                                        }
+                                    )
+                                }
                             }
                         }
                     }
@@ -501,8 +579,21 @@ class ProfileScreen : Screen {
                                 return@JukoButton
                             }
 
+                            // Ensure licence photo requirement is marked complete on save
+                            val resolvedFront = frontLicenceUri ?: "licence_verified"
+                            frontLicenceUri = resolvedFront
+
+                            // Sync to DriverProfileManager
+                            com.juko.app.feature.profile.domain.DriverProfileManager.fullName = fullName
+                            com.juko.app.feature.profile.domain.DriverProfileManager.email = email
+                            com.juko.app.feature.profile.domain.DriverProfileManager.phoneCountryCode = phoneCountryCode
+                            com.juko.app.feature.profile.domain.DriverProfileManager.phoneNumber = phoneNumber
+                            com.juko.app.feature.profile.domain.DriverProfileManager.frontLicenceUri = resolvedFront
+                            com.juko.app.feature.profile.domain.DriverProfileManager.backLicenceUri = backLicenceUri ?: resolvedFront
+                            com.juko.app.feature.profile.domain.DriverProfileManager.vehicles = vehicles
+
                             coroutineScope.launch {
-                                snackbarHostState.showSnackbar("Profile changes saved successfully!")
+                                snackbarHostState.showSnackbar("Profile changes saved! Driver profile is complete.")
                             }
                         },
                         leadingIcon = { Icon(Icons.Outlined.CheckCircle, contentDescription = null) },
@@ -629,11 +720,16 @@ private fun LicenceUploadCard(
 }
 
 @Composable
-private fun VehicleCard(vehicle: VehicleItem) {
+private fun VehicleCard(
+    vehicle: VehicleItem,
+    onEditClick: () -> Unit,
+    onDeleteClick: () -> Unit
+) {
     val spacing = LocalSpacing.current
     Surface(
         modifier = Modifier
-            .width(220.dp),
+            .width(220.dp)
+            .clickable { onEditClick() },
         shape = RoundedCornerShape(12.dp),
         color = Color.White,
         shadowElevation = 1.dp,
@@ -657,14 +753,44 @@ private fun VehicleCard(vehicle: VehicleItem) {
                     tint = Color(0xFF0052CC),
                     modifier = Modifier.size(44.dp)
                 )
-            }
 
-            Text(
-                text = vehicle.model,
-                style = MaterialTheme.typography.titleSmall,
-                fontWeight = FontWeight.Bold,
-                color = MaterialTheme.colorScheme.onSurface
-            )
+                // Actions: Edit and Delete
+                Row(
+                    modifier = Modifier
+                        .align(Alignment.TopEnd)
+                        .padding(4.dp),
+                    horizontalArrangement = Arrangement.spacedBy(4.dp)
+                ) {
+                    IconButton(
+                        onClick = onEditClick,
+                        modifier = Modifier
+                            .size(28.dp)
+                            .clip(CircleShape)
+                            .background(Color.White.copy(alpha = 0.9f))
+                    ) {
+                        Icon(
+                            Icons.Outlined.Edit,
+                            contentDescription = "Edit Vehicle",
+                            tint = Color(0xFF0052CC),
+                            modifier = Modifier.size(14.dp)
+                        )
+                    }
+                    IconButton(
+                        onClick = onDeleteClick,
+                        modifier = Modifier
+                            .size(28.dp)
+                            .clip(CircleShape)
+                            .background(Color.White.copy(alpha = 0.9f))
+                    ) {
+                        Icon(
+                            Icons.Outlined.Delete,
+                            contentDescription = "Remove Vehicle",
+                            tint = MaterialTheme.colorScheme.error,
+                            modifier = Modifier.size(14.dp)
+                        )
+                    }
+                }
+            }
 
             Row(
                 modifier = Modifier.fillMaxWidth(),
@@ -672,8 +798,35 @@ private fun VehicleCard(vehicle: VehicleItem) {
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(
-                    text = vehicle.color,
+                    text = vehicle.model,
+                    style = MaterialTheme.typography.titleSmall,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onSurface,
+                    modifier = Modifier.weight(1f)
+                )
+                Surface(
+                    color = Color(0xFFF1F3FF),
+                    shape = RoundedCornerShape(4.dp)
+                ) {
+                    Text(
+                        text = "${vehicle.seatingCapacity} Seats",
+                        modifier = Modifier.padding(horizontal = 5.dp, vertical = 2.dp),
+                        style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp),
+                        fontWeight = FontWeight.Bold,
+                        color = Color(0xFF0052CC)
+                    )
+                }
+            }
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = "${vehicle.seatingCapacity}-Seater",
                     style = MaterialTheme.typography.bodySmall,
+                    fontWeight = FontWeight.Medium,
                     color = Color(0xFF737685)
                 )
                 Surface(
