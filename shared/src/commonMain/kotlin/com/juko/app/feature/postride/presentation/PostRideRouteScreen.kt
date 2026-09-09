@@ -14,23 +14,30 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.drawBehind
-import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
 import cafe.adriel.voyager.core.screen.Screen
 import cafe.adriel.voyager.koin.getScreenModel
 import cafe.adriel.voyager.navigator.LocalNavigator
 import cafe.adriel.voyager.navigator.currentOrThrow
+import cafe.adriel.voyager.navigator.tab.LocalTabNavigator
+import com.juko.app.core.data.RideStateManager
 import com.juko.app.core.presentation.components.JukoButton
 import com.juko.app.core.presentation.components.JukoGhostButton
+import com.juko.app.core.presentation.components.LocationAutocompleteRow
 import com.juko.app.core.presentation.theme.LocalSpacing
+import com.juko.app.feature.main.YourRidesTab
 import com.juko.app.feature.sidebar.presentation.LocalDrawerController
+import kotlinx.coroutines.launch
+import kotlinx.datetime.Clock
+import kotlinx.datetime.TimeZone
 import kotlinx.datetime.toLocalDateTime
 
 class PostRideRouteScreen : Screen {
@@ -39,11 +46,33 @@ class PostRideRouteScreen : Screen {
         val viewModel = getScreenModel<PostRideViewModel>()
         val state by viewModel.state.collectAsState()
         val navigator = LocalNavigator.currentOrThrow
+        val tabNavigator = LocalTabNavigator.current
         val spacing = LocalSpacing.current
         val drawerController = LocalDrawerController.current
         val scrollState = rememberScrollState()
+        val snackbarHostState = remember { SnackbarHostState() }
+        val coroutineScope = rememberCoroutineScope()
 
         var showIncompleteProfileDialog by remember { mutableStateOf(false) }
+
+        LaunchedEffect(Unit) {
+            viewModel.effect.collect { effect ->
+                when (effect) {
+                    is PostRideSideEffect.ShowToast -> {
+                        snackbarHostState.showSnackbar(effect.message)
+                    }
+                    is PostRideSideEffect.ShowError -> {
+                        snackbarHostState.showSnackbar(effect.message)
+                    }
+                    is PostRideSideEffect.NavigateToPublishedDetail -> {
+                        viewModel.onEvent(PostRideEvent.ResetForm)
+                        RideStateManager.selectRidesTab(0)
+                        tabNavigator.current = YourRidesTab
+                    }
+                    else -> {}
+                }
+            }
+        }
 
         Scaffold(
             topBar = {
@@ -72,7 +101,12 @@ class PostRideRouteScreen : Screen {
                         JukoButton(
                             text = "Continue to Ride Details",
                             onClick = {
-                                if (!com.juko.app.feature.profile.domain.DriverProfileManager.isProfileCompleteForPublishing()) {
+                                val validationError = viewModel.validateStep1()
+                                if (validationError != null) {
+                                    coroutineScope.launch {
+                                        snackbarHostState.showSnackbar(validationError)
+                                    }
+                                } else if (!com.juko.app.feature.profile.domain.DriverProfileManager.isProfileCompleteForPublishing()) {
                                     showIncompleteProfileDialog = true
                                 } else {
                                     navigator.push(PostRideDetailsScreen(viewModel))
@@ -87,6 +121,7 @@ class PostRideRouteScreen : Screen {
                     }
                 }
             },
+            snackbarHost = { SnackbarHost(snackbarHostState) },
             containerColor = MaterialTheme.colorScheme.background
         ) { padding ->
             Column(
@@ -97,22 +132,31 @@ class PostRideRouteScreen : Screen {
                     .padding(spacing.md),
                 verticalArrangement = Arrangement.spacedBy(spacing.lg)
             ) {
-                RouteTimelineCard(state = state, onEvent = viewModel::onEvent)
-                ScheduleCard(state = state, onEvent = viewModel::onEvent)
-                PricingBreakdown(state = state, onEvent = viewModel::onEvent)
-                InfoCard()
+                RouteTimelineCard(
+                    state = state,
+                    onEvent = viewModel::onEvent
+                )
+
+                ScheduleCard(
+                    state = state,
+                    onEvent = viewModel::onEvent
+                )
+
+                DestinationPricingBreakdown(
+                    state = state,
+                    onEvent = viewModel::onEvent
+                )
+
                 Spacer(modifier = Modifier.height(spacing.xl))
             }
         }
 
         if (showIncompleteProfileDialog) {
             ProfileIncompleteDialog(
-                onDismiss = {
-                    showIncompleteProfileDialog = false
-                },
+                onDismiss = { showIncompleteProfileDialog = false },
                 onCompleteClick = {
                     showIncompleteProfileDialog = false
-                    navigator.push(com.juko.app.feature.profile.presentation.ProfileScreen())
+                    navigator.push(com.juko.app.feature.profile.presentation.ProfileScreen(fromPublishRide = true))
                 }
             )
         }
@@ -274,7 +318,7 @@ private fun PostRideHeader(
                 color = MaterialTheme.colorScheme.primary
             )
         }
-        IconButton(onClick = { /* TODO */ }) {
+        IconButton(onClick = { /* Notifications */ }) {
             Icon(Icons.Outlined.Notifications, contentDescription = "Notifications")
         }
     }
@@ -287,32 +331,41 @@ private fun StepIndicator(step: Int) {
         modifier = Modifier
             .fillMaxWidth()
             .padding(horizontal = spacing.edgeMargin, vertical = spacing.sm),
-        verticalAlignment = Alignment.CenterVertically
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(4.dp)
     ) {
-        StepPill(text = "1 ROUTE & PRICING", isActive = step == 1)
+        StepPill(text = "1 ROUTE & PRICING", isActive = step == 1, modifier = Modifier.weight(1f))
         Box(
             modifier = Modifier
-                .weight(1f)
+                .width(12.dp)
                 .height(1.dp)
                 .background(Color(0xFFC3C6D6))
         )
-        StepPill(text = "2 RIDE DETAILS", isActive = step == 2)
+        StepPill(text = "2 DETAILS", isActive = step == 2, modifier = Modifier.weight(1f))
+        Box(
+            modifier = Modifier
+                .width(12.dp)
+                .height(1.dp)
+                .background(Color(0xFFC3C6D6))
+        )
+        StepPill(text = "3 REVIEW", isActive = step == 3, modifier = Modifier.weight(1f))
     }
 }
 
 @Composable
-private fun StepPill(text: String, isActive: Boolean) {
-    val spacing = LocalSpacing.current
+private fun StepPill(text: String, isActive: Boolean, modifier: Modifier = Modifier) {
     Surface(
+        modifier = modifier,
         color = if (isActive) MaterialTheme.colorScheme.primary else Color(0xFFF4F5F7),
         shape = RoundedCornerShape(percent = 50)
     ) {
         Text(
             text = text,
-            modifier = Modifier.padding(horizontal = spacing.sm, vertical = 6.dp),
-            style = MaterialTheme.typography.labelSmall,
+            modifier = Modifier.padding(horizontal = 6.dp, vertical = 6.dp),
+            style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp),
             color = if (isActive) Color.White else Color(0xFF737685),
-            fontWeight = FontWeight.Bold
+            fontWeight = FontWeight.Bold,
+            textAlign = androidx.compose.ui.text.style.TextAlign.Center
         )
     }
 }
@@ -327,125 +380,64 @@ private fun RouteTimelineCard(state: PostRideState, onEvent: (PostRideEvent) -> 
         shadowElevation = 2.dp
     ) {
         Column(modifier = Modifier.padding(spacing.md)) {
-            TimelineRow(
-                label = "START",
+            // Origin / Start Point
+            LocationAutocompleteRow(
+                label = "START LOCATION",
                 city = state.origin,
-                onCityChange = { onEvent(PostRideEvent.OriginChanged(it)) },
+                onQueryChange = { onEvent(PostRideEvent.OriginQueryChanged(it)) },
+                suggestions = state.originSuggestions,
+                onSelectSuggestion = { onEvent(PostRideEvent.OriginSelected(it)) },
+                isConfirmed = state.originLocation?.isConfirmed == true,
                 icon = Icons.Outlined.TripOrigin,
                 iconColor = MaterialTheme.colorScheme.primary,
                 showTrack = true,
-                placeholder = "Departure city"
+                placeholder = "Enter departure city/place"
             )
-            state.stops.forEachIndexed { index, stop ->
-                TimelineRow(
-                    label = "STOP ${index + 1}",
-                    city = stop,
-                    onCityChange = { onEvent(PostRideEvent.UpdateStop(index, it)) },
+
+            // Pickup Points (formerly "Stops")
+            state.pickupPoints.forEachIndexed { index, pickupPoint ->
+                LocationAutocompleteRow(
+                    label = "PICKUP POINT ${index + 1}",
+                    city = pickupPoint.name,
+                    onQueryChange = { onEvent(PostRideEvent.PickupQueryChanged(index, it)) },
+                    suggestions = state.activePickupSuggestions[index] ?: emptyList(),
+                    onSelectSuggestion = { onEvent(PostRideEvent.PickupSelected(index, it)) },
+                    isConfirmed = pickupPoint.isConfirmed,
                     icon = Icons.Outlined.Circle,
                     iconSize = 12.dp,
+                    iconColor = Color(0xFF0052CC),
                     showTrack = true,
-                    onRemove = { onEvent(PostRideEvent.RemoveStop(index)) },
-                    placeholder = "Intermediate city"
+                    onRemove = { onEvent(PostRideEvent.RemovePickupPoint(index)) },
+                    placeholder = "Enter intermediate pickup location"
                 )
             }
-            TimelineRow(
-                label = "END",
+
+            // Final Destination
+            LocationAutocompleteRow(
+                label = "FINAL DESTINATION",
                 city = state.destination,
-                onCityChange = { onEvent(PostRideEvent.DestinationChanged(it)) },
+                onQueryChange = { onEvent(PostRideEvent.DestinationQueryChanged(it)) },
+                suggestions = state.destinationSuggestions,
+                onSelectSuggestion = { onEvent(PostRideEvent.DestinationSelected(it)) },
+                isConfirmed = state.destinationLocation?.isConfirmed == true,
                 icon = Icons.Outlined.LocationOn,
                 iconColor = Color(0xFF36B37E),
                 showTrack = false,
-                placeholder = "Destination city"
+                placeholder = "Enter final destination"
             )
+
             Spacer(modifier = Modifier.height(spacing.md))
+
+            // Add Pickup Point Button (Renamed from "Add Stop")
             OutlinedButton(
-                onClick = { onEvent(PostRideEvent.AddStop("")) },
+                onClick = { onEvent(PostRideEvent.AddPickupPoint) },
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(8.dp),
                 border = BorderStroke(1.dp, Color(0xFFC3C6D6))
             ) {
-                Icon(Icons.Outlined.Add, contentDescription = null)
+                Icon(Icons.Outlined.Add, contentDescription = null, modifier = Modifier.size(18.dp))
                 Spacer(modifier = Modifier.width(spacing.xs))
-                Text("Add Stop", color = MaterialTheme.colorScheme.onSurface)
-            }
-        }
-    }
-}
-
-@Composable
-private fun TimelineRow(
-    label: String,
-    city: String,
-    onCityChange: (String) -> Unit,
-    icon: ImageVector,
-    iconColor: Color = MaterialTheme.colorScheme.onSurfaceVariant,
-    iconSize: Dp = 20.dp,
-    showTrack: Boolean = false,
-    onRemove: (() -> Unit)? = null,
-    placeholder: String = ""
-) {
-    val spacing = LocalSpacing.current
-    Row(modifier = Modifier.height(IntrinsicSize.Min)) {
-        Column(
-            horizontalAlignment = Alignment.CenterHorizontally,
-            modifier = Modifier.width(40.dp)
-        ) {
-            Box(
-                modifier = Modifier
-                    .size(24.dp)
-                    .padding(top = 4.dp),
-                contentAlignment = Alignment.Center
-            ) {
-                Icon(icon, contentDescription = null, tint = iconColor, modifier = Modifier.size(iconSize))
-            }
-            if (showTrack) {
-                Box(
-                    modifier = Modifier
-                        .weight(1f)
-                        .width(2.dp)
-                        .background(Color(0xFFC3C6D6))
-                )
-            }
-        }
-        Column(
-            modifier = Modifier
-                .weight(1f)
-                .padding(bottom = if (showTrack) spacing.md else 0.dp)
-        ) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(label, style = MaterialTheme.typography.labelSmall, color = Color(0xFF737685))
-                    BasicTextField(
-                        value = city,
-                        onValueChange = onCityChange,
-                        modifier = Modifier.fillMaxWidth(),
-                        textStyle = MaterialTheme.typography.bodyLarge.copy(
-                            fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.onSurface
-                        ),
-                        decorationBox = { innerTextField ->
-                            Box {
-                                if (city.isEmpty()) {
-                                    Text(
-                                        text = placeholder,
-                                        style = MaterialTheme.typography.bodyLarge,
-                                        color = Color(0xFFC3C6D6)
-                                    )
-                                }
-                                innerTextField()
-                            }
-                        }
-                    )
-                }
-                if (onRemove != null) {
-                    IconButton(onClick = onRemove, modifier = Modifier.size(24.dp)) {
-                        Icon(Icons.Outlined.Close, contentDescription = "Remove", modifier = Modifier.size(16.dp))
-                    }
-                }
+                Text("Add Pickup Point", color = MaterialTheme.colorScheme.onSurface, fontWeight = FontWeight.SemiBold)
             }
         }
     }
@@ -455,65 +447,103 @@ private fun TimelineRow(
 @Composable
 private fun ScheduleCard(state: PostRideState, onEvent: (PostRideEvent) -> Unit) {
     val spacing = LocalSpacing.current
-    
-    var showDatePickerFor by remember { mutableStateOf<String?>(null) }
-    var showTimePickerFor by remember { mutableStateOf<String?>(null) }
-    
-    val datePickerState = rememberDatePickerState()
-    val timePickerState = rememberTimePickerState()
-    
-    if (showDatePickerFor != null) {
+
+    var showDatePicker by remember { mutableStateOf(false) }
+    var showTimePicker by remember { mutableStateOf(false) }
+
+    // SelectableDates: Disable past dates (Only current epoch or future allowed)
+    val datePickerState = rememberDatePickerState(
+        selectableDates = object : SelectableDates {
+            override fun isSelectableDate(utcTimeMillis: Long): Boolean {
+                val nowMillis = Clock.System.now().toEpochMilliseconds() - 86_400_000L
+                return utcTimeMillis >= nowMillis
+            }
+        }
+    )
+    if (showDatePicker) {
         DatePickerDialog(
-            onDismissRequest = { showDatePickerFor = null },
+            onDismissRequest = { showDatePicker = false },
             confirmButton = {
                 TextButton(onClick = {
                     datePickerState.selectedDateMillis?.let { millis ->
                         val instant = kotlinx.datetime.Instant.fromEpochMilliseconds(millis)
-                        val localDate = instant.toLocalDateTime(kotlinx.datetime.TimeZone.currentSystemDefault()).date
+                        val localDate = instant.toLocalDateTime(TimeZone.currentSystemDefault()).date
                         val formattedDate = "${localDate.dayOfMonth} ${localDate.month.name.take(3).lowercase().replaceFirstChar { it.uppercase() }}"
-                        if (showDatePickerFor == "DEPARTURE") {
-                            onEvent(PostRideEvent.DepartureDateChanged(formattedDate))
-                        } else {
-                            onEvent(PostRideEvent.ArrivalDateChanged(formattedDate))
-                        }
+                        onEvent(PostRideEvent.DepartureDateChanged(formattedDate))
                     }
-                    showDatePickerFor = null
+                    showDatePicker = false
                 }) { Text("OK") }
             },
             dismissButton = {
-                TextButton(onClick = { showDatePickerFor = null }) { Text("Cancel") }
+                TextButton(onClick = { showDatePicker = false }) { Text("Cancel") }
             }
         ) {
             DatePicker(state = datePickerState)
         }
     }
 
-    if (showTimePickerFor != null) {
-        AlertDialog(
-            onDismissRequest = { showTimePickerFor = null },
-            confirmButton = {
-                TextButton(onClick = {
-                    val hour = timePickerState.hour
-                    val minute = timePickerState.minute
-                    val amPm = if (hour >= 12) "PM" else "AM"
-                    val hour12 = if (hour % 12 == 0) 12 else hour % 12
-                    val formattedTime = "${hour12.toString().padStart(2, '0')}:${minute.toString().padStart(2, '0')} $amPm"
-                    
-                    if (showTimePickerFor == "DEPARTURE") {
-                        onEvent(PostRideEvent.DepartureTimeChanged(formattedTime))
-                    } else {
-                        onEvent(PostRideEvent.ArrivalTimeChanged(formattedTime))
-                    }
-                    showTimePickerFor = null
-                }) { Text("OK") }
-            },
-            dismissButton = {
-                TextButton(onClick = { showTimePickerFor = null }) { Text("Cancel") }
-            },
-            text = {
-                TimePicker(state = timePickerState)
-            }
+    if (showTimePicker) {
+        val (parsedHour, parsedMinute) = remember(state.departureTime) {
+            parseTimeString(state.departureTime)
+        }
+        val timePickerState = rememberTimePickerState(
+            initialHour = parsedHour,
+            initialMinute = parsedMinute,
+            is24Hour = false
         )
+
+        Dialog(
+            onDismissRequest = { showTimePicker = false },
+            properties = DialogProperties(usePlatformDefaultWidth = false)
+        ) {
+            Surface(
+                shape = RoundedCornerShape(24.dp),
+                color = MaterialTheme.colorScheme.surface,
+                tonalElevation = 6.dp,
+                modifier = Modifier
+                    .wrapContentWidth()
+                    .wrapContentHeight()
+                    .padding(24.dp)
+            ) {
+                Column(
+                    modifier = Modifier.padding(24.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    Text(
+                        text = "Select Departure Time",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onSurface,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(bottom = 16.dp)
+                    )
+                    TimePicker(state = timePickerState)
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(top = 16.dp),
+                        horizontalArrangement = Arrangement.End
+                    ) {
+                        TextButton(onClick = { showTimePicker = false }) {
+                            Text("Cancel")
+                        }
+                        Spacer(modifier = Modifier.width(8.dp))
+                        TextButton(onClick = {
+                            val hour = timePickerState.hour
+                            val minute = timePickerState.minute
+                            val amPm = if (hour >= 12) "PM" else "AM"
+                            val hour12 = if (hour % 12 == 0) 12 else hour % 12
+                            val formattedTime = "${hour12.toString().padStart(2, '0')}:${minute.toString().padStart(2, '0')} $amPm"
+                            onEvent(PostRideEvent.DepartureTimeChanged(formattedTime))
+                            showTimePicker = false
+                        }) {
+                            Text("OK")
+                        }
+                    }
+                }
+            }
+        }
     }
 
     Surface(
@@ -528,18 +558,68 @@ private fun ScheduleCard(state: PostRideState, onEvent: (PostRideEvent) -> Unit)
                 date = state.departureDate,
                 time = state.departureTime,
                 icon = Icons.Outlined.CalendarToday,
-                onDateClick = { showDatePickerFor = "DEPARTURE" },
-                onTimeClick = { showTimePickerFor = "DEPARTURE" }
+                onDateClick = { showDatePicker = true },
+                onTimeClick = { showTimePicker = true }
             )
             HorizontalDivider(color = Color(0xFFF4F5F7))
-            ScheduleRow(
-                title = "ARRIVAL",
-                date = state.arrivalDate,
-                time = state.arrivalTime,
-                icon = Icons.Outlined.Schedule,
-                onDateClick = { showDatePickerFor = "ARRIVAL" },
-                onTimeClick = { showTimePickerFor = "ARRIVAL" }
-            )
+            
+            // Auto-Calculated Arrival on the basis of route with Google API
+            Column(verticalArrangement = Arrangement.spacedBy(spacing.xs)) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text("ESTIMATED ARRIVAL", style = MaterialTheme.typography.labelSmall, color = Color(0xFF737685))
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(4.dp)
+                    ) {
+                        Icon(
+                            Icons.Outlined.AutoAwesome,
+                            contentDescription = null,
+                            tint = Color(0xFF0052CC),
+                            modifier = Modifier.size(12.dp)
+                        )
+                        Text(
+                            text = "Calculated via Route",
+                            style = MaterialTheme.typography.labelSmall.copy(fontSize = 11.sp),
+                            color = Color(0xFF0052CC),
+                            fontWeight = FontWeight.Medium
+                        )
+                    }
+                }
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(spacing.lg)
+                ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier.weight(1f).padding(vertical = 4.dp)
+                    ) {
+                        Icon(Icons.Outlined.CalendarToday, contentDescription = null, tint = Color(0xFF737685), modifier = Modifier.size(18.dp))
+                        Spacer(modifier = Modifier.width(spacing.xs))
+                        Text(
+                            text = state.arrivalDate.ifBlank { state.departureDate.ifBlank { "Date" } },
+                            style = MaterialTheme.typography.bodyMedium,
+                            fontWeight = FontWeight.SemiBold
+                        )
+                    }
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier.weight(1f).padding(vertical = 4.dp)
+                    ) {
+                        Icon(Icons.Outlined.AccessTime, contentDescription = null, tint = Color(0xFF737685), modifier = Modifier.size(18.dp))
+                        Spacer(modifier = Modifier.width(spacing.xs))
+                        Text(
+                            text = state.arrivalTime.ifBlank { "--:-- --" },
+                            style = MaterialTheme.typography.bodyMedium,
+                            fontWeight = FontWeight.SemiBold
+                        )
+                    }
+                }
+            }
+
             Surface(
                 color = Color(0xFFE3FCEF),
                 shape = RoundedCornerShape(8.dp)
@@ -564,9 +644,9 @@ private fun ScheduleCard(state: PostRideState, onEvent: (PostRideEvent) -> Unit)
 
 @Composable
 private fun ScheduleRow(
-    title: String, 
-    date: String, 
-    time: String, 
+    title: String,
+    date: String,
+    time: String,
     icon: ImageVector,
     onDateClick: () -> Unit,
     onTimeClick: () -> Unit
@@ -576,38 +656,45 @@ private fun ScheduleRow(
         Text(title, style = MaterialTheme.typography.labelSmall, color = Color(0xFF737685))
         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(spacing.lg)) {
             Row(
-                verticalAlignment = Alignment.CenterVertically, 
+                verticalAlignment = Alignment.CenterVertically,
                 modifier = Modifier.weight(1f).clickable { onDateClick() }.padding(vertical = 4.dp)
             ) {
                 Icon(icon, contentDescription = null, tint = Color(0xFF737685), modifier = Modifier.size(18.dp))
                 Spacer(modifier = Modifier.width(spacing.xs))
-                Text(date, style = MaterialTheme.typography.bodyMedium)
+                Text(date.ifBlank { "Select date" }, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold)
             }
             Row(
-                verticalAlignment = Alignment.CenterVertically, 
+                verticalAlignment = Alignment.CenterVertically,
                 modifier = Modifier.weight(1f).clickable { onTimeClick() }.padding(vertical = 4.dp)
             ) {
                 Icon(Icons.Outlined.AccessTime, contentDescription = null, tint = Color(0xFF737685), modifier = Modifier.size(18.dp))
                 Spacer(modifier = Modifier.width(spacing.xs))
-                Text(time, style = MaterialTheme.typography.bodyMedium)
+                Text(time.ifBlank { "Select time" }, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold)
             }
         }
     }
 }
 
+/**
+ * Destination-anchored Route Pricing:
+ * Shows each boarding point -> Final Destination pricing card.
+ * (e.g., Seohara -> Delhi: ₹450, Noorpur -> Delhi: ₹350, Chandpur -> Delhi: ₹250)
+ */
 @Composable
-private fun PricingBreakdown(state: PostRideState, onEvent: (PostRideEvent) -> Unit) {
+private fun DestinationPricingBreakdown(state: PostRideState, onEvent: (PostRideEvent) -> Unit) {
     val spacing = LocalSpacing.current
+    val boardingPoints = listOf(state.origin) + state.pickupPoints.map { it.name }.filter { it.isNotBlank() }
+
     Column(verticalArrangement = Arrangement.spacedBy(spacing.md)) {
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Text("Route Pricing", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
+            Text("Route Pricing to Destination", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
             Surface(color = Color(0xFFE8EDFF), shape = RoundedCornerShape(4.dp)) {
                 Text(
-                    "PRICE PER SEAT",
+                    "FARE TO ${state.destination.uppercase()}",
                     modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp),
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.primary,
@@ -615,16 +702,28 @@ private fun PricingBreakdown(state: PostRideState, onEvent: (PostRideEvent) -> U
                 )
             }
         }
-        state.segmentPrices.forEach { (segment, price) ->
-            SegmentPriceCard(segment = segment, price = price, onPriceChange = { newPrice ->
-                onEvent(PostRideEvent.SegmentPriceChanged(segment, newPrice))
-            })
+
+        boardingPoints.forEach { point ->
+            val price = state.destinationPrices[point] ?: (if (point == state.origin) state.pricePerSeat else 250)
+            DestinationPriceCard(
+                fromPoint = point,
+                toDestination = state.destination,
+                price = price,
+                onPriceChange = { newPrice ->
+                    onEvent(PostRideEvent.DestinationPriceChanged(point, newPrice))
+                }
+            )
         }
     }
 }
 
 @Composable
-private fun SegmentPriceCard(segment: String, price: Int, onPriceChange: (Int) -> Unit) {
+private fun DestinationPriceCard(
+    fromPoint: String,
+    toDestination: String,
+    price: Int,
+    onPriceChange: (Int) -> Unit
+) {
     val spacing = LocalSpacing.current
     Surface(
         modifier = Modifier.fillMaxWidth(),
@@ -637,13 +736,40 @@ private fun SegmentPriceCard(segment: String, price: Int, onPriceChange: (Int) -
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.SpaceBetween
         ) {
-            Text(segment, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f))
+            Column(modifier = Modifier.weight(1f)) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(
+                        text = fromPoint,
+                        style = MaterialTheme.typography.bodyMedium,
+                        fontWeight = FontWeight.Bold
+                    )
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Icon(
+                        Icons.Outlined.ArrowForward,
+                        contentDescription = null,
+                        modifier = Modifier.size(14.dp),
+                        tint = Color(0xFF737685)
+                    )
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Text(
+                        text = toDestination,
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = Color(0xFF5D5F5F)
+                    )
+                }
+                Text(
+                    text = "Price per seat to final destination",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = Color(0xFF737685)
+                )
+            }
+
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(spacing.sm)) {
                 IconButton(
-                    onClick = { if (price >= 10) onPriceChange(price - 10) else onPriceChange(0) },
+                    onClick = { if (price >= 50) onPriceChange(price - 50) else onPriceChange(0) },
                     modifier = Modifier.border(1.dp, Color(0xFFC3C6D6), CircleShape).size(28.dp)
                 ) {
-                    Icon(Icons.Outlined.Remove, contentDescription = "Decrease price by 10", modifier = Modifier.size(14.dp))
+                    Icon(Icons.Outlined.Remove, contentDescription = "Decrease price", modifier = Modifier.size(14.dp))
                 }
 
                 Surface(
@@ -684,44 +810,30 @@ private fun SegmentPriceCard(segment: String, price: Int, onPriceChange: (Int) -
                 }
 
                 IconButton(
-                    onClick = { onPriceChange(price + 10) },
+                    onClick = { onPriceChange(price + 50) },
                     modifier = Modifier.background(MaterialTheme.colorScheme.primary, CircleShape).size(28.dp)
                 ) {
-                    Icon(Icons.Outlined.Add, contentDescription = "Increase price by 10", tint = Color.White, modifier = Modifier.size(14.dp))
+                    Icon(Icons.Outlined.Add, contentDescription = "Increase price", tint = Color.White, modifier = Modifier.size(14.dp))
                 }
             }
         }
     }
 }
 
-@Composable
-private fun InfoCard() {
-    val spacing = LocalSpacing.current
-    Surface(
-        modifier = Modifier
-            .fillMaxWidth()
-            .drawBehind {
-                drawLine(
-                    color = Color(0xFF0052CC),
-                    start = Offset(0f, 0f),
-                    end = Offset(0f, size.height),
-                    strokeWidth = 4.dp.toPx()
-                )
-            },
-        color = Color(0xFFE8EDFF).copy(alpha = 0.5f),
-        shape = RoundedCornerShape(topEnd = 8.dp, bottomEnd = 8.dp)
-    ) {
-        Column(modifier = Modifier.padding(spacing.md), verticalArrangement = Arrangement.spacedBy(spacing.xs)) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Icon(Icons.Outlined.Info, contentDescription = null, tint = Color(0xFF0052CC), modifier = Modifier.size(18.dp))
-                Spacer(modifier = Modifier.width(spacing.xs))
-                Text("How passenger prices work", style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Bold, color = Color(0xFF0052CC))
-            }
-            Text(
-                "Passengers pay for the segments they travel. E.g., if someone joins for 'Mumbai → Lonavala', they pay ₹250. If someone travels the full route, they pay the sum of all segments.",
-                style = MaterialTheme.typography.bodySmall,
-                color = Color(0xFF434654)
-            )
-        }
+private fun parseTimeString(timeStr: String): Pair<Int, Int> {
+    return try {
+        val trimmed = timeStr.trim()
+        val parts = trimmed.split(" ")
+        val timePart = parts[0]
+        val isPm = parts.getOrNull(1)?.equals("PM", ignoreCase = true) == true
+        val isAm = parts.getOrNull(1)?.equals("AM", ignoreCase = true) == true
+        val timeTokens = timePart.split(":")
+        var hour = timeTokens[0].toIntOrNull() ?: 8
+        val minute = timeTokens.getOrNull(1)?.toIntOrNull() ?: 0
+        if (isPm && hour < 12) hour += 12
+        if (isAm && hour == 12) hour = 0
+        Pair(hour, minute)
+    } catch (_: Exception) {
+        Pair(8, 0)
     }
 }

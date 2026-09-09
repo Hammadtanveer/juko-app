@@ -13,10 +13,14 @@ import androidx.compose.material.icons.automirrored.outlined.KeyboardArrowRight
 import androidx.compose.material.icons.outlined.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import com.juko.app.core.data.RecentSearchesManager
+import com.juko.app.core.model.RecentSearch
+import com.juko.app.feature.auth.presentation.auth.AuthScreen
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -34,6 +38,19 @@ import com.juko.app.core.presentation.theme.LocalSpacing
 import com.juko.app.feature.search.presentation.SearchResultsScreen
 import kotlinx.datetime.toLocalDateTime
 
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.text.input.ImeAction
+import com.juko.app.core.location.DefaultPlacesAutocompleteService
+import com.juko.app.core.location.PlaceSuggestion
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
+
 import androidx.compose.runtime.rememberCoroutineScope
 import com.juko.app.feature.sidebar.presentation.LocalDrawerController
 
@@ -43,15 +60,22 @@ class HomeScreen : Screen {
         val navigator = LocalNavigator.currentOrThrow
         val spacing = LocalSpacing.current
         val drawerController = LocalDrawerController.current
+        val isLoggedIn by com.juko.app.core.data.AuthStateManager.isLoggedIn.collectAsState()
+        val currentUserName by com.juko.app.core.data.AuthStateManager.currentUserName.collectAsState()
+        val recentSearches by RecentSearchesManager.recentSearches.collectAsState()
         
         Scaffold(
             topBar = {
                 HomeHeader(
+                    isLoggedIn = isLoggedIn,
                     onMenuClick = {
                         drawerController.open()
                     },
                     onNotificationClick = {
                         navigator.push(com.juko.app.feature.notifications.presentation.NotificationsScreen())
+                    },
+                    onLoginClick = {
+                        navigator.push(AuthScreen())
                     }
                 )
             },
@@ -66,13 +90,19 @@ class HomeScreen : Screen {
                 ) {
                     item {
                         Spacer(modifier = Modifier.height(8.dp))
-                        HeroSection()
+                        HeroSection(isLoggedIn = isLoggedIn, userName = currentUserName)
                     }
                     
                     item {
                         Spacer(modifier = Modifier.height(12.dp))
                         SearchCard(
                             onSearch = { from, to, date, passengers ->
+                                RecentSearchesManager.addSearch(
+                                    from = from,
+                                    to = to,
+                                    passengers = passengers,
+                                    date = date
+                                )
                                 navigator.push(
                                     SearchResultsScreen(
                                         origin = from,
@@ -85,26 +115,39 @@ class HomeScreen : Screen {
                         )
                     }
                     
-                    item {
-                        Spacer(modifier = Modifier.height(spacing.lg))
-                        RecentSearchesHeader()
-                    }
-                    
-                    items(recentSearchList) { search ->
-                        RecentSearchCard(
-                            search = search,
-                            onClick = {
-                                navigator.push(
-                                    SearchResultsScreen(
-                                        origin = search.from,
-                                        destination = search.to,
-                                        date = "Today",
-                                        passengers = search.passengers
+                    val displayedSearches = recentSearches.take(3)
+                    if (displayedSearches.isNotEmpty()) {
+                        item {
+                            Spacer(modifier = Modifier.height(spacing.lg))
+                            RecentSearchesHeader(
+                                onClearAll = {
+                                    RecentSearchesManager.clearAll()
+                                }
+                            )
+                        }
+                        
+                        items(displayedSearches, key = { "${it.from}_${it.to}_${it.timestamp}" }) { search ->
+                            RecentSearchCard(
+                                search = search,
+                                onClick = {
+                                    RecentSearchesManager.addSearch(
+                                        from = search.from,
+                                        to = search.to,
+                                        passengers = search.passengers,
+                                        date = search.date
                                     )
-                                )
-                            }
-                        )
-                        Spacer(modifier = Modifier.height(spacing.md))
+                                    navigator.push(
+                                        SearchResultsScreen(
+                                            origin = search.from,
+                                            destination = search.to,
+                                            date = search.date.ifBlank { "Today" },
+                                            passengers = search.passengers
+                                        )
+                                    )
+                                }
+                            )
+                            Spacer(modifier = Modifier.height(spacing.md))
+                        }
                     }
                     
                     item {
@@ -117,8 +160,10 @@ class HomeScreen : Screen {
 
 @Composable
 private fun HomeHeader(
+    isLoggedIn: Boolean,
     onMenuClick: () -> Unit = {},
-    onNotificationClick: () -> Unit = {}
+    onNotificationClick: () -> Unit = {},
+    onLoginClick: () -> Unit = {}
 ) {
     Row(
         modifier = Modifier
@@ -142,21 +187,53 @@ private fun HomeHeader(
             )
         }
         
-        IconButton(
-            onClick = onNotificationClick,
-            modifier = Modifier.clip(CircleShape).background(MaterialTheme.colorScheme.surface)
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
         ) {
-            Icon(Icons.Outlined.Notifications, contentDescription = "Notifications")
+            if (!isLoggedIn) {
+                FilledTonalButton(
+                    onClick = onLoginClick,
+                    contentPadding = PaddingValues(horizontal = 14.dp, vertical = 6.dp),
+                    shape = RoundedCornerShape(20.dp),
+                    colors = ButtonDefaults.filledTonalButtonColors(
+                        containerColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.12f),
+                        contentColor = MaterialTheme.colorScheme.primary
+                    )
+                ) {
+                    Icon(
+                        Icons.Outlined.Login,
+                        contentDescription = null,
+                        modifier = Modifier.size(16.dp)
+                    )
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text(
+                        text = "Log In",
+                        style = MaterialTheme.typography.labelMedium,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
+            } else {
+                IconButton(
+                    onClick = onNotificationClick,
+                    modifier = Modifier.clip(CircleShape).background(MaterialTheme.colorScheme.surface)
+                ) {
+                    Icon(Icons.Outlined.Notifications, contentDescription = "Notifications")
+                }
+            }
         }
     }
 }
 
 @Composable
-private fun HeroSection() {
+private fun HeroSection(
+    isLoggedIn: Boolean,
+    userName: String?
+) {
     val spacing = LocalSpacing.current
     Column(verticalArrangement = Arrangement.spacedBy(spacing.xs)) {
         Text(
-            text = "Hello, Alex! 👋",
+            text = if (isLoggedIn) "Hello, ${userName ?: "Alex"}! 👋" else "Welcome to Juko! 👋",
             style = MaterialTheme.typography.titleSmall,
             color = MaterialTheme.colorScheme.secondary
         )
@@ -179,6 +256,13 @@ private fun SearchCard(
     var toText by remember { mutableStateOf("") }
     var dateText by remember { mutableStateOf("Today") }
     var passengers by remember { mutableStateOf(1) }
+
+    val placesService = remember { DefaultPlacesAutocompleteService() }
+    val coroutineScope = rememberCoroutineScope()
+    var fromSearchJob by remember { mutableStateOf<Job?>(null) }
+    var toSearchJob by remember { mutableStateOf<Job?>(null) }
+    var fromSuggestions by remember { mutableStateOf<List<PlaceSuggestion>>(emptyList()) }
+    var toSuggestions by remember { mutableStateOf<List<PlaceSuggestion>>(emptyList()) }
 
     var showDatePicker by remember { mutableStateOf(false) }
     val datePickerState = rememberDatePickerState()
@@ -217,7 +301,29 @@ private fun SearchCard(
                 label = "FROM",
                 icon = Icons.Outlined.TripOrigin,
                 value = fromText,
-                onValueChange = { fromText = it },
+                onValueChange = { query ->
+                    fromText = query
+                    fromSearchJob?.cancel()
+                    fromSearchJob = coroutineScope.launch {
+                        delay(200)
+                        if (query.trim().length >= 2) {
+                            fromSuggestions = placesService.searchPlaces(query)
+                        } else {
+                            fromSuggestions = emptyList()
+                        }
+                    }
+                },
+                suggestions = fromSuggestions,
+                onSelectSuggestion = { suggestion ->
+                    fromText = suggestion.primaryText
+                    fromSuggestions = emptyList()
+                    fromSearchJob?.cancel()
+                },
+                onClear = {
+                    fromText = ""
+                    fromSuggestions = emptyList()
+                    fromSearchJob?.cancel()
+                },
                 placeholder = "City, station, place"
             )
             HorizontalDivider(modifier = Modifier.padding(vertical = spacing.md), color = MaterialTheme.colorScheme.outlineVariant)
@@ -225,7 +331,29 @@ private fun SearchCard(
                 label = "TO",
                 icon = Icons.Outlined.LocationOn,
                 value = toText,
-                onValueChange = { toText = it },
+                onValueChange = { query ->
+                    toText = query
+                    toSearchJob?.cancel()
+                    toSearchJob = coroutineScope.launch {
+                        delay(200)
+                        if (query.trim().length >= 2) {
+                            toSuggestions = placesService.searchPlaces(query)
+                        } else {
+                            toSuggestions = emptyList()
+                        }
+                    }
+                },
+                suggestions = toSuggestions,
+                onSelectSuggestion = { suggestion ->
+                    toText = suggestion.primaryText
+                    toSuggestions = emptyList()
+                    toSearchJob?.cancel()
+                },
+                onClear = {
+                    toText = ""
+                    toSuggestions = emptyList()
+                    toSearchJob?.cancel()
+                },
                 placeholder = "City, station, place"
             )
             HorizontalDivider(modifier = Modifier.padding(vertical = spacing.md), color = MaterialTheme.colorScheme.outlineVariant)
@@ -339,9 +467,15 @@ private fun SearchInputRow(
     icon: ImageVector,
     value: String,
     onValueChange: (String) -> Unit,
-    placeholder: String
+    placeholder: String,
+    suggestions: List<PlaceSuggestion> = emptyList(),
+    onSelectSuggestion: (PlaceSuggestion) -> Unit = {},
+    onClear: () -> Unit = {}
 ) {
     val spacing = LocalSpacing.current
+    val focusManager = LocalFocusManager.current
+    var isFocused by remember { mutableStateOf(false) }
+
     Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
         Text(
             text = label,
@@ -349,7 +483,10 @@ private fun SearchInputRow(
             color = MaterialTheme.colorScheme.secondary,
             fontWeight = FontWeight.Bold
         )
-        Row(verticalAlignment = Alignment.CenterVertically) {
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier.fillMaxWidth()
+        ) {
             Icon(
                 imageVector = icon,
                 contentDescription = null,
@@ -361,10 +498,14 @@ private fun SearchInputRow(
                 value = value,
                 onValueChange = onValueChange,
                 textStyle = MaterialTheme.typography.bodyLarge.copy(
+                    fontWeight = FontWeight.Bold,
                     color = MaterialTheme.colorScheme.onSurface
                 ),
+                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
+                keyboardActions = KeyboardActions(onDone = { focusManager.clearFocus() }),
+                singleLine = true,
                 decorationBox = { innerTextField ->
-                    Box {
+                    Box(modifier = Modifier.fillMaxWidth()) {
                         if (value.isEmpty()) {
                             Text(
                                 text = placeholder,
@@ -375,8 +516,82 @@ private fun SearchInputRow(
                         innerTextField()
                     }
                 },
-                modifier = Modifier.fillMaxWidth()
+                modifier = Modifier
+                    .weight(1f)
+                    .onFocusChanged { isFocused = it.isFocused }
             )
+            if (value.isNotBlank()) {
+                IconButton(
+                    onClick = onClear,
+                    modifier = Modifier.size(28.dp)
+                ) {
+                    Icon(
+                        Icons.Outlined.Close,
+                        contentDescription = "Clear",
+                        tint = Color(0xFF9E9E9E),
+                        modifier = Modifier.size(16.dp)
+                    )
+                }
+            }
+        }
+
+        // Live Google Places Autocomplete Suggestions Dropdown
+        AnimatedVisibility(visible = isFocused && suggestions.isNotEmpty()) {
+            Surface(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(top = 4.dp),
+                shape = RoundedCornerShape(12.dp),
+                color = Color.White,
+                shadowElevation = 4.dp,
+                border = BorderStroke(1.dp, Color(0xFFE0E8FF))
+            ) {
+                Column(modifier = Modifier.padding(vertical = 4.dp)) {
+                    suggestions.take(4).forEach { suggestion ->
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable {
+                                    onSelectSuggestion(suggestion)
+                                    focusManager.clearFocus()
+                                }
+                                .padding(horizontal = 12.dp, vertical = 8.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(10.dp)
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .size(28.dp)
+                                    .clip(CircleShape)
+                                    .background(Color(0xFFF1F5FE)),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Icon(
+                                    Icons.Outlined.LocationOn,
+                                    contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.primary,
+                                    modifier = Modifier.size(14.dp)
+                                )
+                            }
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(
+                                    text = suggestion.primaryText,
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    fontWeight = FontWeight.Bold,
+                                    color = MaterialTheme.colorScheme.onSurface
+                                )
+                                if (suggestion.secondaryText.isNotBlank()) {
+                                    Text(
+                                        text = suggestion.secondaryText,
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = Color(0xFF737685)
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+            }
         }
     }
 }
@@ -418,7 +633,7 @@ private fun SearchClickableRow(
 }
 
 @Composable
-private fun RecentSearchesHeader() {
+private fun RecentSearchesHeader(onClearAll: () -> Unit) {
     val spacing = LocalSpacing.current
     Row(
         modifier = Modifier.fillMaxWidth(),
@@ -431,7 +646,7 @@ private fun RecentSearchesHeader() {
             fontWeight = FontWeight.Bold,
             fontSize = 20.sp
         )
-        TextButton(onClick = { /* TODO */ }) {
+        TextButton(onClick = onClearAll) {
             Text(
                 text = "CLEAR ALL",
                 style = MaterialTheme.typography.labelSmall,
@@ -493,14 +708,3 @@ private fun RecentSearchCard(search: RecentSearch, onClick: () -> Unit) {
         }
     }
 }
-
-data class RecentSearch(
-    val from: String,
-    val to: String,
-    val passengers: Int
-)
-
-private val recentSearchList = listOf(
-    RecentSearch("Seohara", "Delhi", 2),
-    RecentSearch("Seohara", "Pune", 3)
-)

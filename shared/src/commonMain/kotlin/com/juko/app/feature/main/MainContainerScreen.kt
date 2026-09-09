@@ -1,5 +1,6 @@
 package com.juko.app.feature.main
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
@@ -7,6 +8,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
@@ -39,6 +41,9 @@ class MainContainerScreen : Screen {
             )
         }
 
+        val isLoggedIn by com.juko.app.core.data.AuthStateManager.isLoggedIn.collectAsState()
+        var showAuthPromptDialog by remember { mutableStateOf<String?>(null) }
+
         CompositionLocalProvider(LocalDrawerController provides drawerController) {
             ModalNavigationDrawer(
                 drawerState = drawerState,
@@ -54,7 +59,10 @@ class MainContainerScreen : Screen {
                 TabNavigator(SearchTab) {
                     Scaffold(
                         bottomBar = {
-                            JukoBottomNavigation()
+                            JukoBottomNavigation(
+                                isLoggedIn = isLoggedIn,
+                                onRequireAuth = { tabTitle -> showAuthPromptDialog = tabTitle }
+                            )
                         },
                         contentWindowInsets = WindowInsets(0, 0, 0, 0)
                     ) { padding ->
@@ -64,12 +72,64 @@ class MainContainerScreen : Screen {
                     }
                 }
             }
+
+            if (showAuthPromptDialog != null) {
+                AlertDialog(
+                    onDismissRequest = { showAuthPromptDialog = null },
+                    icon = {
+                        Box(
+                            modifier = Modifier
+                                .size(48.dp)
+                                .clip(androidx.compose.foundation.shape.CircleShape)
+                                .background(Color(0xFFE8EDFF)),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                androidx.compose.material.icons.Icons.Default.Lock,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.primary
+                            )
+                        }
+                    },
+                    title = {
+                        Text("Log In Required", fontWeight = FontWeight.Bold)
+                    },
+                    text = {
+                        Text(
+                            "Please log in or create an account to access ${showAuthPromptDialog}. You can freely search and view rides as a guest anytime.",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    },
+                    confirmButton = {
+                        Button(
+                            onClick = {
+                                val target = showAuthPromptDialog
+                                showAuthPromptDialog = null
+                                rootNavigator.push(com.juko.app.feature.auth.presentation.auth.AuthScreen())
+                            },
+                            colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary),
+                            shape = androidx.compose.foundation.shape.RoundedCornerShape(8.dp)
+                        ) {
+                            Text("Log In / Sign Up", fontWeight = FontWeight.Bold)
+                        }
+                    },
+                    dismissButton = {
+                        TextButton(onClick = { showAuthPromptDialog = null }) {
+                            Text("Keep Browsing")
+                        }
+                    }
+                )
+            }
         }
     }
 }
 
 @Composable
-private fun JukoBottomNavigation() {
+private fun JukoBottomNavigation(
+    isLoggedIn: Boolean,
+    onRequireAuth: (String) -> Unit
+) {
     val tabNavigator = LocalTabNavigator.current
 
     Surface(
@@ -91,26 +151,37 @@ private fun JukoBottomNavigation() {
             modifier = Modifier.fillMaxSize(),
             horizontalArrangement = Arrangement.SpaceAround
         ) {
-            TabNavigationItem(SearchTab)
-            TabNavigationItem(PublishTab)
-            TabNavigationItem(YourRidesTab)
-            TabNavigationItem(InboxTab)
-            TabNavigationItem(ProfileTab)
+            TabNavigationItem(SearchTab, isLoggedIn, onRequireAuth)
+            TabNavigationItem(PublishTab, isLoggedIn, onRequireAuth)
+            TabNavigationItem(YourRidesTab, isLoggedIn, onRequireAuth)
+            TabNavigationItem(InboxTab, isLoggedIn, onRequireAuth)
+            TabNavigationItem(ProfileTab, isLoggedIn, onRequireAuth)
         }
     }
 }
 
 @Composable
-private fun RowScope.TabNavigationItem(tab: Tab) {
+private fun RowScope.TabNavigationItem(
+    tab: Tab,
+    isLoggedIn: Boolean,
+    onRequireAuth: (String) -> Unit
+) {
     val tabNavigator = LocalTabNavigator.current
     val selected = tabNavigator.current == tab
+    val tabTitle = tab.options.title
     
     val activeColor = MaterialTheme.colorScheme.primary
     val inactiveColor = Color(0xFF5D5F5F)
 
     NavigationBarItem(
         selected = selected,
-        onClick = { tabNavigator.current = tab },
+        onClick = {
+            if (tab != SearchTab && !isLoggedIn) {
+                onRequireAuth(tabTitle)
+            } else {
+                tabNavigator.current = tab
+            }
+        },
         icon = {
             val icon = if (selected) {
                 when (tab) {
