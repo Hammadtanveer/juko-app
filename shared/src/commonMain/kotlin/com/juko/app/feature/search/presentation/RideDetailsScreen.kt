@@ -32,7 +32,10 @@ import com.juko.app.core.model.SearchRideItem
 import com.juko.app.core.presentation.components.JukoAvatar
 import com.juko.app.core.presentation.components.JukoButton
 import com.juko.app.core.presentation.theme.LocalSpacing
+import com.juko.app.feature.auth.presentation.auth.AuthScreen
 import com.juko.app.feature.inbox.presentation.ChatScreen
+import com.juko.app.feature.profile.presentation.ProfileRole
+import com.juko.app.feature.profile.presentation.PublicUserProfileScreen
 import kotlinx.coroutines.launch
 
 data class RideDetailsScreen(
@@ -46,6 +49,9 @@ data class RideDetailsScreen(
         val spacing = LocalSpacing.current
         val snackbarHostState = remember { SnackbarHostState() }
         val coroutineScope = rememberCoroutineScope()
+
+        val isLoggedIn by com.juko.app.core.data.AuthStateManager.isLoggedIn.collectAsState()
+        var showAuthRequiredDialog by remember { mutableStateOf(false) }
 
         val primaryBlue = Color(0xFF0052CC)
 
@@ -167,13 +173,17 @@ data class RideDetailsScreen(
 
                         Button(
                             onClick = {
+                                if (!isLoggedIn) {
+                                    showAuthRequiredDialog = true
+                                    return@Button
+                                }
                                 val result = RideStateManager.bookRide(
                                     rideId = ride.id,
                                     pickupStopIndex = selectedPickupIndex,
                                     seats = selectedSeats,
                                     isFrontSeat = isFrontSeatSelected,
                                     isWindowSeat = isWindowSeatSelected,
-                                    passengerName = "Alex Rivera"
+                                    passengerName = com.juko.app.core.data.AuthStateManager.currentUserName.value ?: "Alex Rivera"
                                 )
                                 result.onSuccess { booking ->
                                     confirmedBooking = booking
@@ -304,6 +314,20 @@ data class RideDetailsScreen(
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
                                 Row(
+                                    modifier = Modifier
+                                        .weight(1f)
+                                        .clickable {
+                                            navigator.push(
+                                                PublicUserProfileScreen(
+                                                    userName = ride.driverName,
+                                                    userAvatar = ride.driverAvatar,
+                                                    role = ProfileRole.DRIVER,
+                                                    rating = ride.driverRating,
+                                                    vehicleModel = ride.vehicleModel,
+                                                    vehiclePlate = ride.vehiclePlate
+                                                )
+                                            )
+                                        },
                                     horizontalArrangement = Arrangement.spacedBy(spacing.sm),
                                     verticalAlignment = Alignment.CenterVertically
                                 ) {
@@ -334,6 +358,10 @@ data class RideDetailsScreen(
 
                                 OutlinedButton(
                                     onClick = {
+                                        if (!isLoggedIn) {
+                                            showAuthRequiredDialog = true
+                                            return@OutlinedButton
+                                        }
                                         navigator.push(
                                             ChatScreen(
                                                 conversationId = "chat_${ride.id}",
@@ -387,8 +415,7 @@ data class RideDetailsScreen(
                                 horizontalArrangement = Arrangement.spacedBy(spacing.sm),
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
-                                AmenityBadge(icon = Icons.Outlined.Luggage, label = "Luggage allowed")
-                                AmenityBadge(icon = Icons.Outlined.SmokeFree, label = "No smoking")
+                                AmenityBadge(icon = Icons.Outlined.Roofing, label = "Roof Rail / Carrier")
                             }
                         }
                     }
@@ -468,20 +495,7 @@ data class RideDetailsScreen(
                                 )
                             }
 
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.SpaceBetween,
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Column {
-                                    Text("Window Seat Preference", style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold)
-                                    Text("+₹30 extra view", style = MaterialTheme.typography.bodySmall, color = Color(0xFF737685))
-                                }
-                                Switch(
-                                    checked = isWindowSeatSelected,
-                                    onCheckedChange = { isWindowSeatSelected = it }
-                                )
-                            }
+
                         }
                     }
                 }
@@ -580,6 +594,55 @@ data class RideDetailsScreen(
                         colors = ButtonDefaults.buttonColors(containerColor = primaryBlue)
                     ) {
                         Text("Done")
+                    }
+                }
+            )
+        }
+
+        // Auth Required Dialog for Guest Users
+        if (showAuthRequiredDialog) {
+            AlertDialog(
+                onDismissRequest = { showAuthRequiredDialog = false },
+                icon = {
+                    Box(
+                        modifier = Modifier
+                            .size(48.dp)
+                            .clip(CircleShape)
+                            .background(Color(0xFFE8EDFF)),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            Icons.Outlined.Lock,
+                            contentDescription = null,
+                            tint = primaryBlue
+                        )
+                    }
+                },
+                title = {
+                    Text("Log In Required", fontWeight = FontWeight.Bold)
+                },
+                text = {
+                    Text(
+                        "Please log in or sign up to book this ride or chat with the driver. You can continue browsing and searching rides without logging in.",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                },
+                confirmButton = {
+                    Button(
+                        onClick = {
+                            showAuthRequiredDialog = false
+                            navigator.push(AuthScreen())
+                        },
+                        colors = ButtonDefaults.buttonColors(containerColor = primaryBlue),
+                        shape = RoundedCornerShape(8.dp)
+                    ) {
+                        Text("Log In / Sign Up", fontWeight = FontWeight.Bold)
+                    }
+                },
+                dismissButton = {
+                    TextButton(onClick = { showAuthRequiredDialog = false }) {
+                        Text("Keep Browsing")
                     }
                 }
             )

@@ -22,30 +22,13 @@ import org.koin.compose.koinInject
 @Preview
 fun App() {
     val tokenManager = koinInject<TokenManager>()
-    var isAuthenticated by remember { mutableStateOf<Boolean?>(null) }
 
     LaunchedEffect(Unit) {
         val token = tokenManager.getAccessToken()
-        isAuthenticated = !token.isNullOrBlank()
+        com.juko.app.core.data.AuthStateManager.setLoggedIn(!token.isNullOrBlank())
     }
 
     JukoTheme {
-        isAuthenticated?.let { authenticated ->
-            Navigator(screen = if (authenticated) MainContainerScreen() else AuthScreen())
-        } ?: run {
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .background(MaterialTheme.colorScheme.background),
-                contentAlignment = Alignment.Center
-            ) {
-                Text(
-                    text = "JUKO",
-                    style = MaterialTheme.typography.displayLarge,
-                    color = MaterialTheme.colorScheme.primary,
-                    fontWeight = FontWeight.Bold
-                )
-            }
-        }
+        Navigator(screen = MainContainerScreen())
     }
 }

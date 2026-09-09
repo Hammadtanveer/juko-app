@@ -29,7 +29,8 @@ data class PassengerEntry(
     val boardingStop: String,
     val seats: Int,
     val totalFare: Int = 0,
-    val phone: String = ""
+    val phone: String = "",
+    val avatar: String? = null
 )
 
 /**
@@ -47,11 +48,12 @@ data class PublishedRideModel(
     val filledSeats: Int = 0,
     val totalSeats: Int = 4,
     val pricePerSeat: Int = 450,
-    val vehicleName: String = "White Swift Dzire (DL 01 AB 1234)",
+    val vehicleName: String = "Swift Dzire",
     val driverName: String = "Alex Rivera",
     val driverAvatar: String? = null,
     val driverRating: Double = 4.8,
     val routeLocations: List<RouteLocation> = emptyList(),
+    val destinationPrices: Map<String, Int> = emptyMap(),
     val passengersList: List<PassengerEntry> = emptyList(),
     val isDriverVerified: Boolean = true,
     val departureDistanceKm: Double = 0.5,
@@ -114,7 +116,9 @@ data class SearchRideItem(
     val driverRating: Double,
     val driverAvatar: String?,
     val seatsLeft: Int,
-    val vehicleName: String = "White Swift Dzire (DL 01 AB 1234)",
+    val vehicleName: String = "Swift Dzire",
+    val vehicleModel: String = "Swift Dzire",
+    val vehiclePlate: String = "DL 01 AB 1234",
     val routeLocations: List<RouteLocation> = emptyList(),
     val initialSelectedStopIndex: Int = 0,
     val isDriverVerified: Boolean = true,

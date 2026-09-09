@@ -1,4 +1,6 @@
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
+import java.util.Properties
+import java.io.FileInputStream
 
 plugins {
     alias(libs.plugins.androidApplication)
@@ -27,12 +29,21 @@ android {
     namespace = "com.example.juko"
     compileSdk = libs.versions.android.compileSdk.get().toInt()
 
+    val localProps = Properties()
+    val localFile = rootProject.file("local.properties")
+    if (localFile.exists()) {
+        localProps.load(FileInputStream(localFile))
+    }
+    val googlePlacesApiKey = localProps.getProperty("GOOGLE_PLACES_API_KEY") ?: "YOUR_GOOGLE_PLACES_API_KEY_HERE"
+
     defaultConfig {
         applicationId = "com.example.juko"
         minSdk = libs.versions.android.minSdk.get().toInt()
         targetSdk = libs.versions.android.targetSdk.get().toInt()
         versionCode = 1
         versionName = "1.0"
+
+        buildConfigField("String", "GOOGLE_PLACES_API_KEY", "\"$googlePlacesApiKey\"")
     }
     packaging {
         resources {
@@ -54,5 +65,6 @@ android {
     }
     buildFeatures {
         compose = true
+        buildConfig = true
     }
 }

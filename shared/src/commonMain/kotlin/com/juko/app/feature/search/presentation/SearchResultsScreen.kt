@@ -30,6 +30,8 @@ import com.juko.app.core.model.RouteLocation
 import com.juko.app.core.model.SearchRideItem
 import com.juko.app.core.presentation.components.JukoAvatar
 import com.juko.app.core.presentation.theme.LocalSpacing
+import com.juko.app.feature.profile.presentation.ProfileRole
+import com.juko.app.feature.profile.presentation.PublicUserProfileScreen
 
 data class SearchResultsScreen(
     val origin: String = "Delhi",
@@ -66,7 +68,6 @@ data class SearchResultsScreen(
                 SearchSortOption.LOWEST_PRICE -> list.sortedBy { it.price }
                 SearchSortOption.CLOSE_TO_DEPARTURE -> list.sortedBy { it.departureDistanceKm }
                 SearchSortOption.CLOSE_TO_ARRIVAL -> list.sortedBy { it.arrivalDistanceKm }
-                SearchSortOption.SHORTEST_RIDE -> list.sortedBy { it.durationMinutes }
             }
         }
 
@@ -236,16 +237,7 @@ data class SearchResultsScreen(
                                 )
                             }
 
-                            // 5. Quick Sort: Shortest ride
-                            item {
-                                FilterChipPill(
-                                    label = "Shortest ride",
-                                    isSelected = selectedSortOption == SearchSortOption.SHORTEST_RIDE,
-                                    onClick = { selectedSortOption = SearchSortOption.SHORTEST_RIDE }
-                                )
-                            }
-
-                            // 6. Quick Sort: Close to departure point
+                            // 5. Quick Sort: Close to departure point
                             item {
                                 FilterChipPill(
                                     label = "Close to departure point",
@@ -342,6 +334,18 @@ data class SearchResultsScreen(
                             ride = ride,
                             onClick = {
                                 navigator.push(RideDetailsScreen(ride = ride))
+                            },
+                            onDriverClick = {
+                                navigator.push(
+                                    PublicUserProfileScreen(
+                                        userName = ride.driverName,
+                                        userAvatar = ride.driverAvatar,
+                                        role = ProfileRole.DRIVER,
+                                        rating = ride.driverRating,
+                                        vehicleModel = ride.vehicleModel,
+                                        vehiclePlate = ride.vehiclePlate
+                                    )
+                                )
                             }
                         )
                     }
@@ -421,7 +425,11 @@ private fun FilterChipPill(
 }
 
 @Composable
-private fun SearchResultCard(ride: SearchRideItem, onClick: () -> Unit) {
+private fun SearchResultCard(
+    ride: SearchRideItem,
+    onClick: () -> Unit,
+    onDriverClick: () -> Unit = {}
+) {
     val spacing = LocalSpacing.current
     val primaryBlue = Color(0xFF0052CC)
 
@@ -525,6 +533,10 @@ private fun SearchResultCard(ride: SearchRideItem, onClick: () -> Unit) {
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Row(
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(8.dp))
+                        .clickable { onDriverClick() }
+                        .padding(4.dp),
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(spacing.sm)
                 ) {
@@ -603,8 +615,7 @@ enum class SearchSortOption(val title: String) {
     EARLIEST_DEPARTURE("Earliest departure"),
     LOWEST_PRICE("Lowest price"),
     CLOSE_TO_DEPARTURE("Close to departure point"),
-    CLOSE_TO_ARRIVAL("Close to arrival point"),
-    SHORTEST_RIDE("Shortest ride")
+    CLOSE_TO_ARRIVAL("Close to arrival point")
 }
 
 private fun parseTimeToMinutes(timeStr: String): Int {

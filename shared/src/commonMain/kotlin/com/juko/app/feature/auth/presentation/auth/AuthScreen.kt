@@ -3,7 +3,9 @@ package com.juko.app.feature.auth.presentation.auth
 import androidx.compose.foundation.*
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.outlined.ArrowBack
 import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material.icons.filled.VisibilityOff
 import androidx.compose.material.icons.outlined.AddAPhoto
@@ -58,10 +60,27 @@ class AuthScreen : Screen {
         val navigator = LocalNavigator.currentOrThrow
         var selectedTab by remember { mutableStateOf(0) }
 
+        val handleDismiss: () -> Unit = {
+            val popped = if (navigator.canPop) navigator.pop() else false
+            if (!popped) {
+                val parentPopped = navigator.parent?.pop() ?: false
+                if (!parentPopped) {
+                    navigator.replaceAll(MainContainerScreen())
+                }
+            }
+        }
+
         LaunchedEffect(Unit) {
             loginViewModel.effect.collect { effect ->
                 when (effect) {
-                    is LoginSideEffect.NavigateToHome -> navigator.replaceAll(MainContainerScreen())
+                    is LoginSideEffect.NavigateToHome -> {
+                        com.juko.app.core.data.AuthStateManager.setLoggedIn(
+                            true,
+                            name = "Alex Rivera",
+                            email = loginState.email.ifBlank { "alex.rivera@example.com" }
+                        )
+                        handleDismiss()
+                    }
                     is LoginSideEffect.NavigateToSignup -> selectedTab = 1
                     is LoginSideEffect.NavigateToForgotPassword -> navigator.push(OtpScreen())
                     is LoginSideEffect.ShowError -> { /* Show error */ }
@@ -73,7 +92,14 @@ class AuthScreen : Screen {
             signupViewModel.effect.collect { effect ->
                 when (effect) {
                     SignupSideEffect.NavigateToLogin -> selectedTab = 0
-                    SignupSideEffect.NavigateToHome -> navigator.replaceAll(MainContainerScreen())
+                    SignupSideEffect.NavigateToHome -> {
+                        com.juko.app.core.data.AuthStateManager.setLoggedIn(
+                            true,
+                            name = signupState.fullName.ifBlank { "New Traveler" },
+                            email = signupState.email.ifBlank { "traveler@example.com" }
+                        )
+                        handleDismiss()
+                    }
                     is SignupSideEffect.ShowError -> { /* Show error */ }
                 }
             }
@@ -85,7 +111,8 @@ class AuthScreen : Screen {
             loginState = loginState,
             onLoginEvent = loginViewModel::onEvent,
             signupState = signupState,
-            onSignupEvent = signupViewModel::onEvent
+            onSignupEvent = signupViewModel::onEvent,
+            onDismiss = handleDismiss
         )
     }
 }
@@ -97,98 +124,157 @@ private fun AuthContent(
     loginState: LoginState,
     onLoginEvent: (LoginEvent) -> Unit,
     signupState: SignupState,
-    onSignupEvent: (SignupEvent) -> Unit
+    onSignupEvent: (SignupEvent) -> Unit,
+    onDismiss: () -> Unit = {}
 ) {
     val spacing = LocalSpacing.current
     val scrollState = rememberScrollState()
 
-    Box(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(MaterialTheme.colorScheme.background)
-    ) {
-        // Atmospheric Background Decoration
-        Box(
-            modifier = Modifier
-                .align(Alignment.TopEnd)
-                .offset(x = 100.dp, y = (-100).dp)
-                .size(256.dp)
-                .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.05f), CircleShape)
-                .blur(80.dp)
-        )
-        Box(
-            modifier = Modifier
-                .align(Alignment.BottomStart)
-                .offset(x = (-150).dp, y = 150.dp)
-                .size(384.dp)
-                .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.10f), CircleShape)
-                .blur(100.dp)
-        )
+    Scaffold(
+        topBar = {
+            Surface(
+                modifier = Modifier.fillMaxWidth(),
+                color = MaterialTheme.colorScheme.background,
+                shadowElevation = 0.dp
+            ) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .statusBarsPadding()
+                        .height(56.dp)
+                        .padding(horizontal = spacing.edgeMargin),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    IconButton(
+                        onClick = onDismiss,
+                        modifier = Modifier.size(40.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.AutoMirrored.Outlined.ArrowBack,
+                            contentDescription = "Back to App",
+                            tint = MaterialTheme.colorScheme.onSurface
+                        )
+                    }
 
-        Column(
+                    TextButton(
+                        onClick = onDismiss,
+                        shape = RoundedCornerShape(16.dp)
+                    ) {
+                        Text(
+                            text = "Browse as Guest",
+                            style = MaterialTheme.typography.labelMedium,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.primary
+                        )
+                    }
+                }
+            }
+        },
+        containerColor = MaterialTheme.colorScheme.background,
+        contentWindowInsets = WindowInsets(0, 0, 0, 0)
+    ) { innerPadding ->
+        Box(
             modifier = Modifier
                 .fillMaxSize()
-                .verticalScroll(scrollState)
-                .padding(horizontal = spacing.edgeMargin, vertical = spacing.xl),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.Center
+                .padding(innerPadding)
         ) {
-            // Header Section
-            Column(
-                horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.spacedBy(spacing.xs)
-            ) {
-                Text(
-                    text = "JUKO",
-                    style = MaterialTheme.typography.displayLarge,
-                    color = MaterialTheme.colorScheme.primary,
-                    fontWeight = FontWeight.Bold
-                )
-                Text(
-                    text = if (selectedTab == 0) "Move forward together with Juko" else "Create your account to start",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            }
-
-            Spacer(modifier = Modifier.height(spacing.xl))
-
-            // Segmented Control
-            JukoSegmentedControl(
-                options = listOf("Login", "Sign Up"),
-                selectedIndex = selectedTab,
-                onOptionSelected = onTabSelected,
-                modifier = Modifier.fillMaxWidth()
+            // Atmospheric Background Decoration
+            Box(
+                modifier = Modifier
+                    .align(Alignment.TopEnd)
+                    .offset(x = 100.dp, y = (-100).dp)
+                    .size(256.dp)
+                    .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.05f), CircleShape)
+                    .blur(80.dp)
+            )
+            Box(
+                modifier = Modifier
+                    .align(Alignment.BottomStart)
+                    .offset(x = (-150).dp, y = 150.dp)
+                    .size(384.dp)
+                    .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.10f), CircleShape)
+                    .blur(100.dp)
             )
 
-            Spacer(modifier = Modifier.height(spacing.lg))
-
-            if (selectedTab == 0) {
-                LoginForm(state = loginState, onEvent = onLoginEvent)
-            } else {
-                SignupForm(state = signupState, onEvent = onSignupEvent)
-            }
-
-            Spacer(modifier = Modifier.height(spacing.xl))
-
-            // Footer Section
-            Row(
+            Column(
                 modifier = Modifier
-                    .clickable { onTabSelected(if (selectedTab == 0) 1 else 0) },
-                horizontalArrangement = Arrangement.Center,
-                verticalAlignment = Alignment.CenterVertically
+                    .fillMaxSize()
+                    .verticalScroll(scrollState)
+                    .padding(horizontal = spacing.edgeMargin, vertical = spacing.md),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.Center
             ) {
-                Text(
-                    text = if (selectedTab == 0) "Don't have an account? " else "Already have an account? ",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                // Header Section
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.spacedBy(spacing.xs)
+                ) {
+                    Text(
+                        text = "JUKO",
+                        style = MaterialTheme.typography.displayLarge,
+                        color = MaterialTheme.colorScheme.primary,
+                        fontWeight = FontWeight.Bold
+                    )
+                    Text(
+                        text = if (selectedTab == 0) "Move forward together with Juko" else "Create your account to start",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+
+                Spacer(modifier = Modifier.height(spacing.xl))
+
+                // Segmented Control
+                JukoSegmentedControl(
+                    options = listOf("Login", "Sign Up"),
+                    selectedIndex = selectedTab,
+                    onOptionSelected = onTabSelected,
+                    modifier = Modifier.fillMaxWidth()
                 )
-                Text(
-                    text = if (selectedTab == 0) "Sign up" else "Login",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.primary,
-                    fontWeight = FontWeight.Bold
-                )
+
+                Spacer(modifier = Modifier.height(spacing.lg))
+
+                if (selectedTab == 0) {
+                    LoginForm(state = loginState, onEvent = onLoginEvent)
+                } else {
+                    SignupForm(state = signupState, onEvent = onSignupEvent)
+                }
+
+                Spacer(modifier = Modifier.height(spacing.xl))
+
+                // Footer Section
+                Row(
+                    modifier = Modifier
+                        .clickable { onTabSelected(if (selectedTab == 0) 1 else 0) },
+                    horizontalArrangement = Arrangement.Center,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = if (selectedTab == 0) "Don't have an account? " else "Already have an account? ",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Text(
+                        text = if (selectedTab == 0) "Sign up" else "Login",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.primary,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
+
+                Spacer(modifier = Modifier.height(spacing.md))
+
+                TextButton(
+                    onClick = onDismiss
+                ) {
+                    Text(
+                        text = "Continue as Guest / Skip Login",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.primary,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                }
             }
         }
     }

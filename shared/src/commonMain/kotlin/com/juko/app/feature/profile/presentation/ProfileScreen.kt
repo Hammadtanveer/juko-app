@@ -11,6 +11,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.outlined.ArrowBack
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.outlined.*
 import androidx.compose.material3.*
@@ -44,14 +45,15 @@ data class VehicleItem(
     val id: String,
     val brand: String = "",
     val model: String,
-    val color: String = "",
     val plateNumber: String,
     val seatingCapacity: Int = 5,
     val photos: List<String> = emptyList(),
     val imageUrl: String? = photos.firstOrNull()
 )
 
-class ProfileScreen : Screen {
+data class ProfileScreen(
+    val fromPublishRide: Boolean = false
+) : Screen {
 
     @Composable
     override fun Content() {
@@ -102,16 +104,27 @@ class ProfileScreen : Screen {
                             verticalAlignment = Alignment.CenterVertically,
                             horizontalArrangement = Arrangement.spacedBy(spacing.xs)
                         ) {
-                            IconButton(onClick = { drawerController.open() }) {
-                                Icon(
-                                    Icons.Outlined.Menu,
-                                    contentDescription = "Menu",
-                                    tint = primaryBlue,
-                                    modifier = Modifier.size(24.dp)
-                                )
+                            if (fromPublishRide || navigator.canPop) {
+                                IconButton(onClick = { navigator.pop() }) {
+                                    Icon(
+                                        Icons.AutoMirrored.Outlined.ArrowBack,
+                                        contentDescription = "Back",
+                                        tint = primaryBlue,
+                                        modifier = Modifier.size(24.dp)
+                                    )
+                                }
+                            } else {
+                                IconButton(onClick = { drawerController.open() }) {
+                                    Icon(
+                                        Icons.Outlined.Menu,
+                                        contentDescription = "Menu",
+                                        tint = primaryBlue,
+                                        modifier = Modifier.size(24.dp)
+                                    )
+                                }
                             }
                             Text(
-                                text = "Juko",
+                                text = if (fromPublishRide) "Complete Profile" else "Juko",
                                 style = MaterialTheme.typography.titleLarge.copy(fontSize = 22.sp),
                                 fontWeight = FontWeight.Bold,
                                 color = primaryBlue
@@ -592,8 +605,12 @@ class ProfileScreen : Screen {
                             com.juko.app.feature.profile.domain.DriverProfileManager.backLicenceUri = backLicenceUri ?: resolvedFront
                             com.juko.app.feature.profile.domain.DriverProfileManager.vehicles = vehicles
 
-                            coroutineScope.launch {
-                                snackbarHostState.showSnackbar("Profile changes saved! Driver profile is complete.")
+                            if (fromPublishRide && navigator.canPop) {
+                                navigator.pop()
+                            } else {
+                                coroutineScope.launch {
+                                    snackbarHostState.showSnackbar("Profile changes saved! Driver profile is complete.")
+                                }
                             }
                         },
                         leadingIcon = { Icon(Icons.Outlined.CheckCircle, contentDescription = null) },

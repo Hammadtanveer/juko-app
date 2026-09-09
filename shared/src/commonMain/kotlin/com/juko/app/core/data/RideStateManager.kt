@@ -1,5 +1,6 @@
 package com.juko.app.core.data
 
+import com.juko.app.core.location.PlaceLocation
 import com.juko.app.core.model.*
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -23,6 +24,14 @@ object RideStateManager {
 
     private val _rideHistory = MutableStateFlow(getInitialHistory())
     val rideHistory: StateFlow<List<HistoryRideModel>> = _rideHistory.asStateFlow()
+
+    // Active sub-tab in MyRidesScreen (0: PUBLISH, 1: REQUEST/BOOKING, 2: HISTORY)
+    private val _selectedRidesTab = MutableStateFlow(0)
+    val selectedRidesTab: StateFlow<Int> = _selectedRidesTab.asStateFlow()
+
+    fun selectRidesTab(tabIndex: Int) {
+        _selectedRidesTab.value = tabIndex
+    }
 
     /**
      * Search active published rides matching origin/stop and destination.
@@ -117,7 +126,7 @@ object RideStateManager {
                 ?: ride?.departureTime ?: "08:00 AM",
             driverName = ride?.driverName ?: "Alex Rivera",
             driverAvatar = ride?.driverAvatar,
-            vehicleName = ride?.vehicleName ?: "White Swift Dzire (DL 01 AB 1234)",
+            vehicleName = ride?.vehicleName ?: "Swift Dzire",
             seatsBooked = seats,
             totalFare = totalFare,
             boardingPin = pin,
@@ -162,13 +171,17 @@ object RideStateManager {
         departureTime: String = "08:00 AM",
         totalSeats: Int = 4,
         pricePerSeat: Int = 450,
-        vehicleName: String = "White Swift Dzire (DL 01 AB 1234)",
-        isDraft: Boolean = false
+        destinationPrices: Map<String, Int> = emptyMap(),
+        vehicleName: String = "Swift Dzire",
+        isDraft: Boolean = false,
+        originLocation: PlaceLocation? = null,
+        destinationLocation: PlaceLocation? = null,
+        pickupLocations: List<PlaceLocation> = emptyList()
     ): PublishedRideModel {
         val newId = "ride_${(1000..9999).random()}"
         val cleanStops = stops.filter { it.isNotBlank() }
 
-        // Build route locations
+        // Build route locations with coordinates
         val routeLocations = mutableListOf<RouteLocation>()
         routeLocations.add(
             RouteLocation(
@@ -176,16 +189,21 @@ object RideStateManager {
                 name = origin.ifBlank { "Origin" },
                 order = 0,
                 isSource = true,
-                estimatedTime = departureTime
+                estimatedTime = departureTime,
+                latitude = originLocation?.latitude,
+                longitude = originLocation?.longitude
             )
         )
         cleanStops.forEachIndexed { index, stopName ->
+            val pickupLoc = pickupLocations.getOrNull(index)
             routeLocations.add(
                 RouteLocation(
                     id = "loc_${newId}_${index + 1}",
                     name = stopName,
                     order = index + 1,
-                    estimatedTime = calculateEstTime(departureTime, index + 1)
+                    estimatedTime = calculateEstTime(departureTime, index + 1),
+                    latitude = pickupLoc?.latitude,
+                    longitude = pickupLoc?.longitude
                 )
             )
         }
@@ -195,7 +213,9 @@ object RideStateManager {
                 name = destination.ifBlank { "Destination" },
                 order = cleanStops.size + 1,
                 isDestination = true,
-                estimatedTime = calculateEstTime(departureTime, cleanStops.size + 1)
+                estimatedTime = calculateEstTime(departureTime, cleanStops.size + 1),
+                latitude = destinationLocation?.latitude,
+                longitude = destinationLocation?.longitude
             )
         )
 
@@ -216,6 +236,7 @@ object RideStateManager {
             driverAvatar = null,
             driverRating = 4.9,
             routeLocations = routeLocations,
+            destinationPrices = destinationPrices,
             passengersList = emptyList()
         )
 
@@ -258,6 +279,82 @@ object RideStateManager {
         _rideHistory.update { listOf(hist) + it }
 
         return true
+    }
+
+    /**
+     * Update an existing published ride.
+     */
+    fun updatePublishedRide(
+        rideId: String,
+        origin: String? = null,
+        destination: String? = null,
+        intermediateStops: List<String>? = null,
+        departureDate: String? = null,
+        departureTime: String? = null,
+        totalSeats: Int? = null,
+        pricePerSeat: Int? = null,
+        destinationPrices: Map<String, Int>? = null
+    ): Boolean {
+        var updated = false
+        _publishedRides.update { list ->
+            list.map { ride ->
+                if (ride.id == rideId) {
+                    updated = true
+                    val newOrigin = origin ?: ride.origin
+                    val newDest = destination ?: ride.destination
+                    val newDate = departureDate ?: ride.departureDate
+                    val newTime = departureTime ?: ride.departureTime
+                    val newPrice = pricePerSeat ?: ride.pricePerSeat
+                    val newSeats = totalSeats ?: ride.totalSeats
+                    val newStops = intermediateStops ?: ride.intermediateStops
+                    val newDestPrices = destinationPrices ?: ride.destinationPrices
+
+                    val routeLocations = mutableListOf<RouteLocation>()
+                    routeLocations.add(
+                        RouteLocation(
+                            id = "loc_${rideId}_0",
+                            name = newOrigin,
+                            order = 0,
+                            isSource = true,
+                            estimatedTime = newTime
+                        )
+                    )
+                    newStops.forEachIndexed { index, stopName ->
+                        routeLocations.add(
+                            RouteLocation(
+                                id = "loc_${rideId}_${index + 1}",
+                                name = stopName,
+                                order = index + 1,
+                                estimatedTime = calculateEstTime(newTime, index + 1)
+                            )
+                        )
+                    }
+                    routeLocations.add(
+                        RouteLocation(
+                            id = "loc_${rideId}_${newStops.size + 1}",
+                            name = newDest,
+                            order = newStops.size + 1,
+                            isDestination = true,
+                            estimatedTime = calculateEstTime(newTime, newStops.size + 1)
+                        )
+                    )
+
+                    ride.copy(
+                        origin = newOrigin,
+                        destination = newDest,
+                        intermediateStops = newStops,
+                        departureDate = newDate,
+                        departureTime = newTime,
+                        dateTime = "$newDate, $newTime",
+                        pricePerSeat = newPrice,
+                        totalSeats = newSeats,
+                        routeLocations = routeLocations,
+                        destinationPrices = newDestPrices
+                    )
+                } else ride
+            }
+        }
+        return updated
     }
 
     /**
@@ -413,7 +510,7 @@ object RideStateManager {
                 filledSeats = 2,
                 totalSeats = 4,
                 pricePerSeat = 450,
-                vehicleName = "White Swift Dzire (DL 01 AB 1234)",
+                vehicleName = "Swift Dzire",
                 driverName = "Rahul Sharma",
                 driverAvatar = "https://lh3.googleusercontent.com/aida-public/AB6AXuCKYEb47azE7KIsX7pIzB9mjz1RKlj_e8gPNrELvoNxr4a4ZbO81La7WXxWwGuBD-2oQWPHrwDuTRXv1G8uEuA-RFEFlIrMbuUqxPqEyND6lnxpPkr390ck8Lk66bqK1ziDQZwg5V9JSommvmFtM0wURjqHnMp9lErkm5-rTMsXV6xmevXkm-vngAc2TmsP1ntYMnk-QMM6UNewnh-dVrA9XA3G7Y1Td4TGZpheU9qWZsJ0O5IwK7ZU",
                 driverRating = 4.8,
@@ -435,7 +532,7 @@ object RideStateManager {
                 filledSeats = 0, // 0 bookings -> EDIT ALLOWED!
                 totalSeats = 3,
                 pricePerSeat = 380,
-                vehicleName = "Silver Honda City (DL 04 EF 5678)",
+                vehicleName = "Honda City",
                 driverName = "Anita Kapoor",
                 driverAvatar = "https://lh3.googleusercontent.com/aida-public/AB6AXuDjCFi6hSeikXO26byFKauht4PmxZK204AR3XCqdXpOuM5L__mJ2cTmXDvEcl_G59mMY5F1ZCFx3mDLA5t_LhbfFRCcVN0OADih56H0naDNOo8O80lHswNiCLVi9_wrMvpla3t4r3yZ9nfpKnmLpJJPO7F1Xqg4V1JoPCrzXjc5--k7En9ONj0L9ibdyah-3MncNX0gjvGcHgaPoTqSHFKGhFOl92QEL9O7jfz4ixs01mRBBK9SaEN0",
                 driverRating = 4.9,
@@ -454,7 +551,7 @@ object RideStateManager {
                 filledSeats = 0, // 0 bookings -> EDIT ALLOWED!
                 totalSeats = 4,
                 pricePerSeat = 350,
-                vehicleName = "Grey Hyundai Creta (UP 20 CD 9012)",
+                vehicleName = "Hyundai Creta",
                 driverName = "Alex Rivera",
                 driverAvatar = null,
                 driverRating = 4.8,
@@ -476,7 +573,7 @@ object RideStateManager {
                 departureTime = "09:15 AM",
                 driverName = "Rahul Sharma",
                 driverAvatar = "https://lh3.googleusercontent.com/aida-public/AB6AXuCKYEb47azE7KIsX7pIzB9mjz1RKlj_e8gPNrELvoNxr4a4ZbO81La7WXxWwGuBD-2oQWPHrwDuTRXv1G8uEuA-RFEFlIrMbuUqxPqEyND6lnxpPkr390ck8Lk66bqK1ziDQZwg5V9JSommvmFtM0wURjqHnMp9lErkm5-rTMsXV6xmevXkm-vngAc2TmsP1ntYMnk-QMM6UNewnh-dVrA9XA3G7Y1Td4TGZpheU9qWZsJ0O5IwK7ZU",
-                vehicleName = "White Swift Dzire (DL 01 AB 1234)",
+                vehicleName = "Swift Dzire",
                 seatsBooked = 2,
                 totalFare = 740,
                 boardingPin = "7419",

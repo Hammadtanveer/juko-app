@@ -32,10 +32,12 @@ import com.juko.app.core.presentation.components.JukoButton
 import com.juko.app.core.presentation.components.JukoSegmentedControl
 import com.juko.app.core.presentation.theme.LocalSpacing
 import com.juko.app.feature.inbox.presentation.ChatScreen
+import com.juko.app.feature.profile.presentation.ProfileRole
+import com.juko.app.feature.profile.presentation.PublicUserProfileScreen
 import com.juko.app.feature.sidebar.presentation.LocalDrawerController
 import kotlinx.coroutines.launch
 
-class MyRidesScreen : Screen {
+class MyRidesScreen(val initialTab: Int = 0) : Screen {
 
     @Composable
     override fun Content() {
@@ -45,8 +47,13 @@ class MyRidesScreen : Screen {
         val coroutineScope = rememberCoroutineScope()
         val drawerController = LocalDrawerController.current
 
-        // 0: PUBLISH, 1: REQUEST / BOOKING, 2: HISTORY (Default is 2: HISTORY)
-        var selectedTab by remember { mutableStateOf(2) }
+        val activeTabFromManager by RideStateManager.selectedRidesTab.collectAsState()
+        // 0: PUBLISH, 1: REQUEST / BOOKING, 2: HISTORY (Default is 0: PUBLISH)
+        var selectedTab by remember { mutableStateOf(initialTab) }
+
+        LaunchedEffect(activeTabFromManager) {
+            selectedTab = activeTabFromManager
+        }
 
         // Reactive State from RideStateManager
         val bookingsList by RideStateManager.customerBookings.collectAsState()
@@ -150,20 +157,29 @@ class MyRidesScreen : Screen {
                                 title = "PUBLISH",
                                 badgeCount = publishedList.size,
                                 selected = selectedTab == 0,
-                                onClick = { selectedTab = 0 },
+                                onClick = {
+                                    selectedTab = 0
+                                    RideStateManager.selectRidesTab(0)
+                                },
                                 modifier = Modifier.weight(1f)
                             )
                             SubTabItem(
                                 title = "REQUEST / BOOKING",
                                 badgeCount = requestsList.size + bookingsList.size,
                                 selected = selectedTab == 1,
-                                onClick = { selectedTab = 1 },
+                                onClick = {
+                                    selectedTab = 1
+                                    RideStateManager.selectRidesTab(1)
+                                },
                                 modifier = Modifier.weight(1.35f)
                             )
                             SubTabItem(
                                 title = "HISTORY",
                                 selected = selectedTab == 2,
-                                onClick = { selectedTab = 2 },
+                                onClick = {
+                                    selectedTab = 2
+                                    RideStateManager.selectRidesTab(2)
+                                },
                                 modifier = Modifier.weight(1f)
                             )
                         }
@@ -199,13 +215,14 @@ class MyRidesScreen : Screen {
                                 items(publishedList) { ride ->
                                     DriverPublishedCard(
                                         ride = ride,
+                                        onClick = {
+                                            navigator.push(com.juko.app.feature.postride.presentation.PublishedRideDetailScreen(ride.id))
+                                        },
                                         onEditClick = {
                                             if (ride.filledSeats > 0) {
                                                 lockedEditRideMessage = "Ride editing is locked because ${ride.filledSeats} passenger(s) have already booked seats."
                                             } else {
-                                                coroutineScope.launch {
-                                                    snackbarHostState.showSnackbar("Opening ride editor for ${ride.origin} → ${ride.destination}")
-                                                }
+                                                navigator.push(EditPublishedRideScreen(ride.id))
                                             }
                                         },
                                         onViewPassengers = { selectedRideForPassengers = ride },
@@ -293,6 +310,16 @@ class MyRidesScreen : Screen {
                                                 coroutineScope.launch {
                                                     snackbarHostState.showSnackbar("Booking cancelled successfully")
                                                 }
+                                            },
+                                            onDriverClick = {
+                                                navigator.push(
+                                                    PublicUserProfileScreen(
+                                                        userName = booking.driverName,
+                                                        userAvatar = booking.driverAvatar,
+                                                        role = ProfileRole.DRIVER,
+                                                        vehicleModel = booking.vehicleName
+                                                    )
+                                                )
                                             }
                                         )
                                     }
@@ -328,6 +355,18 @@ class MyRidesScreen : Screen {
                             participantName = passengerName,
                             participantAvatar = null,
                             routeInfo = "Confirmed passenger on your ride"
+                        )
+                    )
+                },
+                onViewPassengerProfile = { passenger ->
+                    selectedRideForPassengers = null
+                    navigator.push(
+                        PublicUserProfileScreen(
+                            userName = passenger.name,
+                            userAvatar = passenger.avatar,
+                            role = ProfileRole.PASSENGER,
+                            boardingStop = passenger.boardingStop,
+                            seatsBooked = passenger.seats
                         )
                     )
                 }
@@ -457,7 +496,8 @@ private fun SubTabItem(
 private fun PassengerBookingCard(
     booking: CustomerBookingModel,
     onChat: () -> Unit,
-    onCancel: () -> Unit
+    onCancel: () -> Unit,
+    onDriverClick: () -> Unit = {}
 ) {
     val spacing = LocalSpacing.current
     val primaryBlue = Color(0xFF0052CC)
@@ -492,7 +532,7 @@ private fun PassengerBookingCard(
                         )
                     }
                     Text(
-                        text = "${booking.departureDate} • ${booking.departureTime}",
+                        text = booking.departureDate,
                         style = MaterialTheme.typography.bodySmall,
                         color = Color(0xFF737685)
                     )
@@ -521,6 +561,7 @@ private fun PassengerBookingCard(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Row(
+                    modifier = Modifier.clickable { onDriverClick() },
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(spacing.sm)
                 ) {
@@ -546,7 +587,7 @@ private fun PassengerBookingCard(
                 }
             }
 
-            // Boarding Location Callout (Direct Boarding - No OTP)
+            // Boarding Location Callout
             Surface(
                 color = Color(0xFFF1F5FE),
                 shape = RoundedCornerShape(8.dp),
@@ -559,7 +600,7 @@ private fun PassengerBookingCard(
                 ) {
                     Icon(Icons.Outlined.PinDrop, contentDescription = null, tint = primaryBlue, modifier = Modifier.size(16.dp))
                     Text(
-                        text = "Boarding: ${booking.boardingStop} (${booking.departureTime}) • Direct Boarding (No OTP)",
+                        text = "Boarding: ${booking.boardingStop}",
                         style = MaterialTheme.typography.labelSmall,
                         color = primaryBlue,
                         fontWeight = FontWeight.Bold
@@ -598,6 +639,7 @@ private fun PassengerBookingCard(
 @Composable
 private fun DriverPublishedCard(
     ride: PublishedRideModel,
+    onClick: () -> Unit = {},
     onEditClick: () -> Unit,
     onViewPassengers: () -> Unit,
     onDelete: () -> Unit
@@ -608,7 +650,9 @@ private fun DriverPublishedCard(
     val isLocked = ride.filledSeats > 0
 
     Surface(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable { onClick() },
         shape = RoundedCornerShape(12.dp),
         color = Color.White,
         shadowElevation = 2.dp,
@@ -973,7 +1017,7 @@ private fun BookingRequestCard(
                 ) {
                     Icon(Icons.Outlined.LocationOn, contentDescription = null, tint = primaryBlue, modifier = Modifier.size(16.dp))
                     Text(
-                        text = "Boarding: ${request.pickupStation} (${request.distanceAway} away)",
+                        text = "Boarding: ${request.pickupStation}",
                         style = MaterialTheme.typography.bodySmall,
                         fontWeight = FontWeight.SemiBold,
                         color = primaryBlue
@@ -1030,7 +1074,8 @@ private fun BookingRequestCard(
 private fun ViewPassengersDialog(
     ride: PublishedRideModel,
     onDismiss: () -> Unit,
-    onChatPassenger: (String) -> Unit
+    onChatPassenger: (String) -> Unit,
+    onViewPassengerProfile: (PassengerEntry) -> Unit = {}
 ) {
     val primaryBlue = Color(0xFF0052CC)
     AlertDialog(
@@ -1044,7 +1089,7 @@ private fun ViewPassengersDialog(
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 Text(
-                    text = "Passengers organized by Boarding Stop:",
+                    text = "Passengers organized by Boarding Stop (tap to view profile):",
                     style = MaterialTheme.typography.bodySmall,
                     color = Color(0xFF737685)
                 )
@@ -1054,8 +1099,10 @@ private fun ViewPassengersDialog(
                 } else {
                     ride.passengersList.forEach { p ->
                         Surface(
-                            modifier = Modifier.fillMaxWidth(),
-                            shape = RoundedCornerShape(8.dp),
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable { onViewPassengerProfile(p) },
+                            shape = RoundedCornerShape(10.dp),
                             color = Color(0xFFF1F5FE)
                         ) {
                             Row(
@@ -1063,9 +1110,16 @@ private fun ViewPassengersDialog(
                                 verticalAlignment = Alignment.CenterVertically,
                                 horizontalArrangement = Arrangement.SpaceBetween
                             ) {
-                                Column {
-                                    Text(text = p.name, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.bodyMedium)
-                                    Text(text = "Boarding: ${p.boardingStop} • ${p.seats} seat(s)", style = MaterialTheme.typography.bodySmall, color = primaryBlue)
+                                Row(
+                                    modifier = Modifier.weight(1f),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(10.dp)
+                                ) {
+                                    JukoAvatar(imageUrl = p.avatar, initials = p.name.take(2), size = 40.dp)
+                                    Column {
+                                        Text(text = p.name, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.bodyMedium)
+                                        Text(text = "Boarding: ${p.boardingStop} • ${p.seats} seat(s)", style = MaterialTheme.typography.bodySmall, color = primaryBlue)
+                                    }
                                 }
                                 IconButton(onClick = { onChatPassenger(p.name) }) {
                                     Icon(Icons.Outlined.Chat, contentDescription = "Chat", tint = primaryBlue, modifier = Modifier.size(20.dp))

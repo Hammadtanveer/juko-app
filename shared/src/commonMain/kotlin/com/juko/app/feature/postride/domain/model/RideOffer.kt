@@ -14,5 +14,10 @@ data class RideOffer(
     val maxTwoBackSeat: Boolean = true,
     val smokingAllowed: Boolean = false,
     val petsAllowed: Boolean = false,
-    val notes: String = ""
+    val notes: String = "",
+    val originLatitude: Double? = null,
+    val originLongitude: Double? = null,
+    val destinationLatitude: Double? = null,
+    val destinationLongitude: Double? = null,
+    val stops: List<String> = emptyList()
 )

@@ -11,7 +11,6 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.ArrowBack
 import androidx.compose.material.icons.automirrored.outlined.Send
-import androidx.compose.material.icons.outlined.Call
 import androidx.compose.material.icons.outlined.DirectionsCar
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -56,8 +55,8 @@ data class ChatScreen(
                 listOf(
                     ChatMessage("1", "Hi, I booked a seat for the Delhi to Seohara ride.", "08:15 AM", isFromMe = false),
                     ChatMessage("2", "Hey! Yes, I got your booking request. Will pick you up from ISBT Gate 2.", "08:17 AM", isFromMe = true),
-                    ChatMessage("3", "Great! What is the car color and plate number?", "08:19 AM", isFromMe = false),
-                    ChatMessage("4", "White Swift Dzire, DL 01 AB 1234. See you soon!", "08:20 AM", isFromMe = true)
+                    ChatMessage("3", "Great! What is your vehicle and plate number?", "08:19 AM", isFromMe = false),
+                    ChatMessage("4", "Swift Dzire, DL 01 AB 1234. See you soon!", "08:20 AM", isFromMe = true)
                 )
             )
         }
@@ -115,21 +114,6 @@ data class ChatScreen(
                                         )
                                     }
                                 }
-                            }
-
-                            IconButton(
-                                onClick = { /* Make phone call */ },
-                                modifier = Modifier
-                                    .size(40.dp)
-                                    .clip(CircleShape)
-                                    .background(Color(0xFFE8EDFF))
-                            ) {
-                                Icon(
-                                    Icons.Outlined.Call,
-                                    contentDescription = "Call",
-                                    tint = primaryBlue,
-                                    modifier = Modifier.size(20.dp)
-                                )
                             }
                         }
 

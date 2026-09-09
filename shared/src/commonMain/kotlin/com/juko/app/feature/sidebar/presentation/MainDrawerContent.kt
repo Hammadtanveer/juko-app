@@ -32,6 +32,8 @@ fun MainDrawerContent(
     val spacing = LocalSpacing.current
     val primaryBlue = Color(0xFF0052CC)
 
+    val isLoggedIn by com.juko.app.core.data.AuthStateManager.isLoggedIn.collectAsState()
+    var showAuthPromptDialog by remember { mutableStateOf<String?>(null) }
     var showLogoutDialog by remember { mutableStateOf(false) }
     var showCloseAccountDialog by remember { mutableStateOf(false) }
 
@@ -55,50 +57,105 @@ fun MainDrawerContent(
                     shape = RoundedCornerShape(12.dp),
                     color = Color(0xFFF1F5FE)
                 ) {
-                    Row(
-                        modifier = Modifier.padding(spacing.md),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(spacing.sm)
-                    ) {
-                        JukoAvatar(
-                            imageUrl = "https://lh3.googleusercontent.com/aida-public/AB6AXuBfFzjg65uwWojeFdWMwuH6S_YvbBEw6T57aVOZ1xNMnMLHFJvs5mG1JMwWH0JKpHcF9eXeWaXNtzH2ubS3gcN86p3UYtSlZlpdNUJLNa8VTWI6f5_wUgHEqHEEVJcf18D2a1vEBn15-bKk8zM1mLNIhIWNmxYIzLpP2ZRIatWdIIBmRAT2ufv-5Kh-fVMYbiSXQ5Vp6iej4k-D1AfyzZ-OtW_5QdsqPjyRqE5Kif5PgU3tdsCclG1Z",
-                            size = 50.dp
-                        )
-                        Column(modifier = Modifier.weight(1f)) {
-                            Text(
-                                text = DriverProfileManager.fullName.ifBlank { "Alex Doe" },
-                                style = MaterialTheme.typography.titleSmall,
-                                fontWeight = FontWeight.Bold,
-                                color = MaterialTheme.colorScheme.onSurface
+                    if (isLoggedIn) {
+                        Row(
+                            modifier = Modifier.padding(spacing.md),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(spacing.sm)
+                        ) {
+                            JukoAvatar(
+                                imageUrl = "https://lh3.googleusercontent.com/aida-public/AB6AXuBfFzjg65uwWojeFdWMwuH6S_YvbBEw6T57aVOZ1xNMnMLHFJvs5mG1JMwWH0JKpHcF9eXeWaXNtzH2ubS3gcN86p3UYtSlZlpdNUJLNa8VTWI6f5_wUgHEqHEEVJcf18D2a1vEBn15-bKk8zM1mLNIhIWNmxYIzLpP2ZRIatWdIIBmRAT2ufv-5Kh-fVMYbiSXQ5Vp6iej4k-D1AfyzZ-OtW_5QdsqPjyRqE5Kif5PgU3tdsCclG1Z",
+                                size = 50.dp
                             )
-                            Text(
-                                text = DriverProfileManager.email.ifBlank { "alex.doe@example.com" },
-                                style = MaterialTheme.typography.bodySmall,
-                                color = Color(0xFF737685)
-                            )
-                            Surface(
-                                color = Color(0xFFE8EDFF),
-                                shape = RoundedCornerShape(4.dp),
-                                modifier = Modifier.padding(top = 4.dp)
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(
+                                    text = DriverProfileManager.fullName.ifBlank { "Alex Rivera" },
+                                    style = MaterialTheme.typography.titleSmall,
+                                    fontWeight = FontWeight.Bold,
+                                    color = MaterialTheme.colorScheme.onSurface
+                                )
+                                Text(
+                                    text = DriverProfileManager.email.ifBlank { "alex.rivera@example.com" },
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = Color(0xFF737685)
+                                )
+                                Surface(
+                                    color = Color(0xFFE8EDFF),
+                                    shape = RoundedCornerShape(4.dp),
+                                    modifier = Modifier.padding(top = 4.dp)
+                                ) {
+                                    Row(
+                                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.spacedBy(2.dp)
+                                    ) {
+                                        Icon(
+                                            Icons.Outlined.Verified,
+                                            contentDescription = null,
+                                            tint = primaryBlue,
+                                            modifier = Modifier.size(12.dp)
+                                        )
+                                        Text(
+                                            text = "Verified Member",
+                                            style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp),
+                                            color = primaryBlue,
+                                            fontWeight = FontWeight.Bold
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                    } else {
+                        Column(
+                            modifier = Modifier.padding(spacing.md),
+                            verticalArrangement = Arrangement.spacedBy(10.dp)
+                        ) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(spacing.sm)
                             ) {
-                                Row(
-                                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    horizontalArrangement = Arrangement.spacedBy(2.dp)
+                                Box(
+                                    modifier = Modifier
+                                        .size(46.dp)
+                                        .clip(CircleShape)
+                                        .background(Color(0xFFE8EDFF)),
+                                    contentAlignment = Alignment.Center
                                 ) {
                                     Icon(
-                                        Icons.Outlined.Verified,
+                                        Icons.Outlined.Person,
                                         contentDescription = null,
                                         tint = primaryBlue,
-                                        modifier = Modifier.size(12.dp)
-                                    )
-                                    Text(
-                                        text = "Verified Member",
-                                        style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp),
-                                        color = primaryBlue,
-                                        fontWeight = FontWeight.Bold
+                                        modifier = Modifier.size(24.dp)
                                     )
                                 }
+                                Column {
+                                    Text(
+                                        text = "Guest Traveler",
+                                        style = MaterialTheme.typography.titleSmall,
+                                        fontWeight = FontWeight.Bold,
+                                        color = MaterialTheme.colorScheme.onSurface
+                                    )
+                                    Text(
+                                        text = "Sign in to manage rides & profile",
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = Color(0xFF737685)
+                                    )
+                                }
+                            }
+
+                            Button(
+                                onClick = {
+                                    onCloseDrawer()
+                                    navigator.push(AuthScreen())
+                                },
+                                modifier = Modifier.fillMaxWidth().height(38.dp),
+                                shape = RoundedCornerShape(8.dp),
+                                colors = ButtonDefaults.buttonColors(containerColor = primaryBlue),
+                                contentPadding = PaddingValues(0.dp)
+                            ) {
+                                Icon(Icons.Outlined.Login, contentDescription = null, modifier = Modifier.size(16.dp))
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Text("Log In / Sign Up", fontWeight = FontWeight.Bold, fontSize = 13.sp)
                             }
                         }
                     }
@@ -113,10 +170,14 @@ fun MainDrawerContent(
                 DrawerNavigationItem(
                     icon = Icons.Outlined.StarRate,
                     label = "Ratings",
-                    badge = "4.8 ★",
+                    badge = if (isLoggedIn) "4.8 ★" else null,
                     onClick = {
-                        onCloseDrawer()
-                        navigator.push(RatingsScreen())
+                        if (!isLoggedIn) {
+                            showAuthPromptDialog = "Ratings"
+                        } else {
+                            onCloseDrawer()
+                            navigator.push(RatingsScreen())
+                        }
                     }
                 )
 
@@ -133,8 +194,12 @@ fun MainDrawerContent(
                     icon = Icons.Outlined.Lock,
                     label = "Password",
                     onClick = {
-                        onCloseDrawer()
-                        navigator.push(ChangePasswordScreen())
+                        if (!isLoggedIn) {
+                            showAuthPromptDialog = "Password Management"
+                        } else {
+                            onCloseDrawer()
+                            navigator.push(ChangePasswordScreen())
+                        }
                     }
                 )
 
@@ -161,23 +226,35 @@ fun MainDrawerContent(
                     modifier = Modifier.padding(vertical = spacing.xs, horizontal = spacing.md)
                 )
 
-                DrawerNavigationItem(
-                    icon = Icons.Outlined.Logout,
-                    label = "Log Out",
-                    tint = Color(0xFFBA1A1A),
-                    onClick = {
-                        showLogoutDialog = true
-                    }
-                )
+                if (isLoggedIn) {
+                    DrawerNavigationItem(
+                        icon = Icons.Outlined.Logout,
+                        label = "Log Out",
+                        tint = Color(0xFFBA1A1A),
+                        onClick = {
+                            showLogoutDialog = true
+                        }
+                    )
 
-                DrawerNavigationItem(
-                    icon = Icons.Outlined.PersonOff,
-                    label = "Close My Account",
-                    tint = Color(0xFFBA1A1A),
-                    onClick = {
-                        showCloseAccountDialog = true
-                    }
-                )
+                    DrawerNavigationItem(
+                        icon = Icons.Outlined.PersonOff,
+                        label = "Close My Account",
+                        tint = Color(0xFFBA1A1A),
+                        onClick = {
+                            showCloseAccountDialog = true
+                        }
+                    )
+                } else {
+                    DrawerNavigationItem(
+                        icon = Icons.Outlined.Login,
+                        label = "Log In / Sign Up",
+                        tint = primaryBlue,
+                        onClick = {
+                            onCloseDrawer()
+                            navigator.push(AuthScreen())
+                        }
+                    )
+                }
             }
 
             // Footer Section
@@ -215,7 +292,7 @@ fun MainDrawerContent(
                     onClick = {
                         showLogoutDialog = false
                         onCloseDrawer()
-                        navigator.replaceAll(AuthScreen())
+                        com.juko.app.core.data.AuthStateManager.logout()
                     },
                     colors = ButtonDefaults.buttonColors(containerColor = primaryBlue)
                 ) {
@@ -248,7 +325,7 @@ fun MainDrawerContent(
                     onClick = {
                         showCloseAccountDialog = false
                         onCloseDrawer()
-                        navigator.replaceAll(AuthScreen())
+                        com.juko.app.core.data.AuthStateManager.logout()
                     },
                     colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFBA1A1A))
                 ) {
@@ -257,6 +334,40 @@ fun MainDrawerContent(
             },
             dismissButton = {
                 TextButton(onClick = { showCloseAccountDialog = false }) {
+                    Text("Cancel")
+                }
+            }
+        )
+    }
+
+    // Auth Prompt Dialog for Protected Menu Items
+    if (showAuthPromptDialog != null) {
+        AlertDialog(
+            onDismissRequest = { showAuthPromptDialog = null },
+            icon = {
+                Icon(Icons.Outlined.Lock, contentDescription = null, tint = primaryBlue, modifier = Modifier.size(28.dp))
+            },
+            title = {
+                Text("Log In Required", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleMedium)
+            },
+            text = {
+                Text("Please log in or sign up to access ${showAuthPromptDialog}. You can search and view rides freely without an account.")
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        val target = showAuthPromptDialog
+                        showAuthPromptDialog = null
+                        onCloseDrawer()
+                        navigator.push(AuthScreen())
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = primaryBlue)
+                ) {
+                    Text("Log In / Sign Up")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showAuthPromptDialog = null }) {
                     Text("Cancel")
                 }
             }

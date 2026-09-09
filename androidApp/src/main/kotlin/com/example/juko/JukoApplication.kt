@@ -10,6 +10,8 @@ class JukoApplication : Application() {
     override fun onCreate() {
         super.onCreate()
 
+        com.juko.app.core.storage.AndroidPlatformContext.context = this
+
         startKoin {
             androidLogger()
             androidContext(this@JukoApplication)
