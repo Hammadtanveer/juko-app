@@ -65,8 +65,6 @@ data class ProfileScreen(
         val drawerController = LocalDrawerController.current
 
         val primaryBlue = Color(0xFF0052CC)
-        val onlineGreen = Color(0xFF006844)
-        val onlineGreenBg = Color(0xFF82F9BE)
 
         var fullName by remember { mutableStateOf(com.juko.app.feature.profile.domain.DriverProfileManager.fullName) }
         var email by remember { mutableStateOf(com.juko.app.feature.profile.domain.DriverProfileManager.email) }
@@ -135,31 +133,6 @@ data class ProfileScreen(
                             verticalAlignment = Alignment.CenterVertically,
                             horizontalArrangement = Arrangement.spacedBy(spacing.sm)
                         ) {
-                            // Online Status Pill
-                            Surface(
-                                color = onlineGreenBg,
-                                shape = RoundedCornerShape(percent = 50)
-                            ) {
-                                Row(
-                                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp),
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    horizontalArrangement = Arrangement.spacedBy(4.dp)
-                                ) {
-                                    Box(
-                                        modifier = Modifier
-                                            .size(6.dp)
-                                            .clip(CircleShape)
-                                            .background(onlineGreen)
-                                    )
-                                    Text(
-                                        text = "Online",
-                                        style = MaterialTheme.typography.labelSmall,
-                                        fontWeight = FontWeight.Bold,
-                                        color = onlineGreen
-                                    )
-                                }
-                            }
-
                             IconButton(onClick = {
                                 navigator.push(
                                     PublicUserProfileScreen(

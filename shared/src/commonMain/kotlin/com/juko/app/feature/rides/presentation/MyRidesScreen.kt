@@ -8,6 +8,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.ArrowForward
+import androidx.compose.material.icons.automirrored.outlined.ArrowForwardIos
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.outlined.*
 import androidx.compose.material3.*
@@ -295,6 +296,9 @@ class MyRidesScreen(val initialTab: Int = 0) : Screen {
                                     items(bookingsList) { booking ->
                                         PassengerBookingCard(
                                             booking = booking,
+                                            onClick = {
+                                                navigator.push(BookedRideDetailScreen(booking.id))
+                                            },
                                             onChat = {
                                                 navigator.push(
                                                     ChatScreen(
@@ -495,6 +499,7 @@ private fun SubTabItem(
 @Composable
 private fun PassengerBookingCard(
     booking: CustomerBookingModel,
+    onClick: () -> Unit = {},
     onChat: () -> Unit,
     onCancel: () -> Unit,
     onDriverClick: () -> Unit = {}
@@ -503,7 +508,9 @@ private fun PassengerBookingCard(
     val primaryBlue = Color(0xFF0052CC)
 
     Surface(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable { onClick() },
         shape = RoundedCornerShape(12.dp),
         color = Color.White,
         shadowElevation = 2.dp,
@@ -513,13 +520,15 @@ private fun PassengerBookingCard(
             modifier = Modifier.padding(spacing.md),
             verticalArrangement = Arrangement.spacedBy(spacing.sm)
         ) {
-            // Header: Route & Status
+            // Header: Route & Status (clickable)
             Row(
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable { onClick() },
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.Top
             ) {
-                Column {
+                Column(modifier = Modifier.weight(1f)) {
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.spacedBy(spacing.xs)
@@ -529,6 +538,12 @@ private fun PassengerBookingCard(
                             text = "${booking.boardingStop} → ${booking.destination}",
                             style = MaterialTheme.typography.titleSmall,
                             fontWeight = FontWeight.Bold
+                        )
+                        Icon(
+                            Icons.AutoMirrored.Outlined.ArrowForwardIos,
+                            contentDescription = "View Ride Details",
+                            tint = primaryBlue,
+                            modifier = Modifier.size(12.dp)
                         )
                     }
                     Text(
@@ -791,6 +806,7 @@ private fun HistorySection(
     onToggleFilterMenu: (Boolean) -> Unit,
     onReviewClick: (HistoryRideModel) -> Unit
 ) {
+    val navigator = LocalNavigator.currentOrThrow
     val spacing = LocalSpacing.current
     val filteredHistory = when (statusFilter) {
         "Completed" -> historyList.filter { it.status == "Completed" }
@@ -843,6 +859,19 @@ private fun HistorySection(
             HistoryCardItem(
                 history = historyItem,
                 isPassengerView = historyItem.userRole == "PASSENGER",
+                onClick = {
+                    if (historyItem.userRole == "DRIVER") {
+                        val published = RideStateManager.publishedRides.value.find { it.id == historyItem.id }
+                        if (published != null) {
+                            navigator.push(com.juko.app.feature.postride.presentation.PublishedRideDetailScreen(published.id))
+                        }
+                    } else {
+                        val booking = RideStateManager.customerBookings.value.find { it.id == historyItem.id }
+                        if (booking != null) {
+                            navigator.push(BookedRideDetailScreen(booking.id))
+                        }
+                    }
+                },
                 onReviewClick = { onReviewClick(historyItem) }
             )
         }
@@ -853,6 +882,7 @@ private fun HistorySection(
 private fun HistoryCardItem(
     history: HistoryRideModel,
     isPassengerView: Boolean,
+    onClick: () -> Unit = {},
     onReviewClick: () -> Unit
 ) {
     val spacing = LocalSpacing.current
@@ -860,7 +890,9 @@ private fun HistoryCardItem(
     val isCancelled = history.status == "Cancelled"
 
     Surface(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable { onClick() },
         shape = RoundedCornerShape(12.dp),
         color = Color.White,
         shadowElevation = 1.dp,

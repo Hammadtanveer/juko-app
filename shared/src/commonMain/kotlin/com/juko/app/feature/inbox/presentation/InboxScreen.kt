@@ -262,23 +262,11 @@ private fun ConversationRow(
         verticalAlignment = Alignment.Top,
         horizontalArrangement = Arrangement.spacedBy(14.dp)
     ) {
-        // Avatar with Online indicator
-        Box(modifier = Modifier.size(56.dp)) {
-            JukoAvatar(
-                imageUrl = item.avatarUrl,
-                size = 56.dp
-            )
-            if (item.isOnline) {
-                Box(
-                    modifier = Modifier
-                        .size(14.dp)
-                        .align(Alignment.BottomEnd)
-                        .border(2.dp, MaterialTheme.colorScheme.surface, CircleShape)
-                        .clip(CircleShape)
-                        .background(Color(0xFF22C55E))
-                )
-            }
-        }
+        // Avatar
+        JukoAvatar(
+            imageUrl = item.avatarUrl,
+            size = 56.dp
+        )
 
         // Message Details
         Column(

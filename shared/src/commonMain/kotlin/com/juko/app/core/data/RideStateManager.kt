@@ -245,6 +245,13 @@ object RideStateManager {
     }
 
     /**
+     * Retrieve a customer booking by ID.
+     */
+    fun getBookingById(bookingId: String): CustomerBookingModel? {
+        return _customerBookings.value.find { it.id == bookingId }
+    }
+
+    /**
      * Cancel an active passenger booking.
      */
     fun cancelBooking(bookingId: String): Boolean {
