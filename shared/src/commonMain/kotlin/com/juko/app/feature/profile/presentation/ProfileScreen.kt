@@ -161,6 +161,32 @@ data class ProfileScreen(
                             }
 
                             IconButton(onClick = {
+                                navigator.push(
+                                    PublicUserProfileScreen(
+                                        userName = fullName.ifBlank { "Alexander Mitchell" },
+                                        userAvatar = avatarUrl,
+                                        role = ProfileRole.DRIVER,
+                                        rating = 4.8,
+                                        ridesCount = 124,
+                                        bio = "Daily commuter offering safe and comfortable carpooling to share travel costs and reduce traffic. Punctual departure and polite driving.",
+                                        memberSince = "Member since Jan 2024",
+                                        phoneVerified = true,
+                                        idVerified = true,
+                                        emailVerified = true,
+                                        vehicleModel = vehicles.firstOrNull()?.let { "${it.brand} ${it.model}".trim() } ?: "Toyota Camry",
+                                        vehiclePlate = vehicles.firstOrNull()?.plateNumber ?: "ABC-1234",
+                                        isOwnProfile = true
+                                    )
+                                )
+                            }) {
+                                Icon(
+                                    Icons.Outlined.Visibility,
+                                    contentDescription = "View Public Profile",
+                                    tint = primaryBlue
+                                )
+                            }
+
+                            IconButton(onClick = {
                                 navigator.push(com.juko.app.feature.notifications.presentation.NotificationsScreen())
                             }) {
                                 Icon(
@@ -232,7 +258,27 @@ data class ProfileScreen(
                 // Ratings & Rides Card
                 item {
                     Surface(
-                        modifier = Modifier.fillMaxWidth(),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable {
+                                navigator.push(
+                                    PublicUserProfileScreen(
+                                        userName = fullName.ifBlank { "Alexander Mitchell" },
+                                        userAvatar = avatarUrl,
+                                        role = ProfileRole.DRIVER,
+                                        rating = 4.8,
+                                        ridesCount = 124,
+                                        bio = "Daily commuter offering safe and comfortable carpooling to share travel costs and reduce traffic. Punctual departure and polite driving.",
+                                        memberSince = "Member since Jan 2024",
+                                        phoneVerified = true,
+                                        idVerified = true,
+                                        emailVerified = true,
+                                        vehicleModel = vehicles.firstOrNull()?.let { "${it.brand} ${it.model}".trim() } ?: "Toyota Camry",
+                                        vehiclePlate = vehicles.firstOrNull()?.plateNumber ?: "ABC-1234",
+                                        isOwnProfile = true
+                                    )
+                                )
+                            },
                         shape = RoundedCornerShape(16.dp),
                         color = Color.White,
                         shadowElevation = 1.dp,
@@ -264,17 +310,45 @@ data class ProfileScreen(
                                 fontWeight = FontWeight.Bold,
                                 color = MaterialTheme.colorScheme.onSurface
                             )
-                            Surface(
-                                color = Color(0xFFE0E8FF),
-                                shape = RoundedCornerShape(percent = 50)
+                            Row(
+                                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                verticalAlignment = Alignment.CenterVertically
                             ) {
-                                Text(
-                                    text = "Member since Jan 2024",
-                                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 2.dp),
-                                    style = MaterialTheme.typography.labelSmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                    fontWeight = FontWeight.SemiBold
-                                )
+                                Surface(
+                                    color = Color(0xFFE0E8FF),
+                                    shape = RoundedCornerShape(percent = 50)
+                                ) {
+                                    Text(
+                                        text = "Member since Jan 2024",
+                                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 2.dp),
+                                        style = MaterialTheme.typography.labelSmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        fontWeight = FontWeight.SemiBold
+                                    )
+                                }
+                                Surface(
+                                    color = Color(0xFFF0F4FF),
+                                    shape = RoundedCornerShape(percent = 50)
+                                ) {
+                                    Row(
+                                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp),
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.spacedBy(3.dp)
+                                    ) {
+                                        Icon(
+                                            Icons.Outlined.Visibility,
+                                            contentDescription = null,
+                                            tint = primaryBlue,
+                                            modifier = Modifier.size(12.dp)
+                                        )
+                                        Text(
+                                            text = "View Public Profile",
+                                            style = MaterialTheme.typography.labelSmall,
+                                            color = primaryBlue,
+                                            fontWeight = FontWeight.Bold
+                                        )
+                                    }
+                                }
                             }
                         }
                     }

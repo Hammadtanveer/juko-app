@@ -10,6 +10,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.ArrowBack
+import androidx.compose.material.icons.automirrored.outlined.Chat
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.filled.Verified
 import androidx.compose.material.icons.outlined.*
@@ -49,7 +50,8 @@ data class PublicUserProfileScreen(
     val vehicleModel: String? = null,
     val vehiclePlate: String? = null,
     val boardingStop: String? = null,
-    val seatsBooked: Int? = null
+    val seatsBooked: Int? = null,
+    val isOwnProfile: Boolean = false
 ) : Screen {
 
     @Composable
@@ -90,7 +92,7 @@ data class PublicUserProfileScreen(
                             }
                             Spacer(modifier = Modifier.width(spacing.xs))
                             Text(
-                                text = if (role == ProfileRole.DRIVER) "Driver Profile" else "Passenger Profile",
+                                text = if (isOwnProfile) "My Profile" else if (role == ProfileRole.DRIVER) "Driver Profile" else "Passenger Profile",
                                 style = MaterialTheme.typography.titleMedium,
                                 fontWeight = FontWeight.Bold,
                                 color = MaterialTheme.colorScheme.onSurface
@@ -99,14 +101,14 @@ data class PublicUserProfileScreen(
 
                         Surface(
                             shape = RoundedCornerShape(20.dp),
-                            color = if (role == ProfileRole.DRIVER) Color(0xFFE8EDFF) else Color(0xFFE3FCEF)
+                            color = if (isOwnProfile) Color(0xFFE8EDFF) else if (role == ProfileRole.DRIVER) Color(0xFFE8EDFF) else Color(0xFFE3FCEF)
                         ) {
                             Text(
-                                text = if (role == ProfileRole.DRIVER) "DRIVER" else "PASSENGER",
+                                text = if (isOwnProfile) "MY ACCOUNT" else if (role == ProfileRole.DRIVER) "DRIVER" else "PASSENGER",
                                 modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp),
                                 style = MaterialTheme.typography.labelSmall,
                                 fontWeight = FontWeight.Bold,
-                                color = if (role == ProfileRole.DRIVER) primaryBlue else Color(0xFF006644)
+                                color = if (isOwnProfile || role == ProfileRole.DRIVER) primaryBlue else Color(0xFF006644)
                             )
                         }
                     }
@@ -124,25 +126,43 @@ data class PublicUserProfileScreen(
                             .navigationBarsPadding()
                             .padding(horizontal = spacing.edgeMargin, vertical = 12.dp)
                     ) {
-                        JukoButton(
-                            text = "Chat with ${userName.split(" ").firstOrNull() ?: userName}",
-                            onClick = {
-                                val convId = "chat_${userName.lowercase().replace(" ", "_")}"
-                                val routeText = if (boardingStop != null) "Boarding at $boardingStop" else "Trip Discussion"
-                                navigator.push(
-                                    ChatScreen(
-                                        conversationId = convId,
-                                        participantName = userName,
-                                        participantAvatar = userAvatar,
-                                        routeInfo = routeText
+                        if (isOwnProfile) {
+                            JukoButton(
+                                text = "Edit Profile Details",
+                                onClick = {
+                                    val hasProfile = navigator.items.any { it is ProfileScreen }
+                                    if (hasProfile) {
+                                        navigator.popUntil { it is ProfileScreen }
+                                    } else {
+                                        navigator.push(ProfileScreen())
+                                    }
+                                },
+                                modifier = Modifier.fillMaxWidth().height(50.dp),
+                                leadingIcon = {
+                                    Icon(Icons.Outlined.Edit, contentDescription = null, tint = Color.White)
+                                }
+                            )
+                        } else {
+                            JukoButton(
+                                text = "Chat with ${userName.split(" ").firstOrNull() ?: userName}",
+                                onClick = {
+                                    val convId = "chat_${userName.lowercase().replace(" ", "_")}"
+                                    val routeText = if (boardingStop != null) "Boarding at $boardingStop" else "Trip Discussion"
+                                    navigator.push(
+                                        ChatScreen(
+                                            conversationId = convId,
+                                            participantName = userName,
+                                            participantAvatar = userAvatar,
+                                            routeInfo = routeText
+                                        )
                                     )
-                                )
-                            },
-                            modifier = Modifier.fillMaxWidth().height(50.dp),
-                            leadingIcon = {
-                                Icon(Icons.Outlined.Chat, contentDescription = null, tint = Color.White)
-                            }
-                        )
+                                },
+                                modifier = Modifier.fillMaxWidth().height(50.dp),
+                                leadingIcon = {
+                                    Icon(Icons.AutoMirrored.Outlined.Chat, contentDescription = null, tint = Color.White)
+                                }
+                            )
+                        }
                     }
                 }
             },

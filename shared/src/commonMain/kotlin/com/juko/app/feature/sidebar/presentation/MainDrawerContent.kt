@@ -7,6 +7,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.outlined.ArrowForwardIos
 import androidx.compose.material.icons.outlined.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -23,6 +24,8 @@ import com.juko.app.core.presentation.components.JukoAvatar
 import com.juko.app.core.presentation.theme.LocalSpacing
 import com.juko.app.feature.auth.presentation.auth.AuthScreen
 import com.juko.app.feature.profile.domain.DriverProfileManager
+import com.juko.app.feature.profile.presentation.ProfileRole
+import com.juko.app.feature.profile.presentation.PublicUserProfileScreen
 
 @Composable
 fun MainDrawerContent(
@@ -59,7 +62,28 @@ fun MainDrawerContent(
                 ) {
                     if (isLoggedIn) {
                         Row(
-                            modifier = Modifier.padding(spacing.md),
+                            modifier = Modifier
+                                .clickable {
+                                    onCloseDrawer()
+                                    navigator.push(
+                                        PublicUserProfileScreen(
+                                            userName = DriverProfileManager.fullName.ifBlank { "Alexander Mitchell" },
+                                            userAvatar = "https://lh3.googleusercontent.com/aida-public/AB6AXuBfFzjg65uwWojeFdWMwuH6S_YvbBEw6T57aVOZ1xNMnMLHFJvs5mG1JMwWH0JKpHcF9eXeWaXNtzH2ubS3gcN86p3UYtSlZlpdNUJLNa8VTWI6f5_wUgHEqHEEVJcf18D2a1vEBn15-bKk8zM1mLNIhIWNmxYIzLpP2ZRIatWdIIBmRAT2ufv-5Kh-fVMYbiSXQ5Vp6iej4k-D1AfyzZ-OtW_5QdsqPjyRqE5Kif5PgU3tdsCclG1Z",
+                                            role = ProfileRole.DRIVER,
+                                            rating = 4.8,
+                                            ridesCount = 124,
+                                            bio = "Daily commuter offering safe and comfortable carpooling to share travel costs and reduce traffic. Punctual departure and polite driving.",
+                                            memberSince = "Member since Jan 2024",
+                                            phoneVerified = true,
+                                            idVerified = true,
+                                            emailVerified = true,
+                                            vehicleModel = DriverProfileManager.vehicles.firstOrNull()?.let { "${it.brand} ${it.model}".trim() } ?: "Toyota Camry",
+                                            vehiclePlate = DriverProfileManager.vehicles.firstOrNull()?.plateNumber ?: "ABC-1234",
+                                            isOwnProfile = true
+                                        )
+                                    )
+                                }
+                                .padding(spacing.md),
                             verticalAlignment = Alignment.CenterVertically,
                             horizontalArrangement = Arrangement.spacedBy(spacing.sm)
                         ) {
@@ -69,41 +93,51 @@ fun MainDrawerContent(
                             )
                             Column(modifier = Modifier.weight(1f)) {
                                 Text(
-                                    text = DriverProfileManager.fullName.ifBlank { "Alex Rivera" },
+                                    text = DriverProfileManager.fullName.ifBlank { "Alexander Mitchell" },
                                     style = MaterialTheme.typography.titleSmall,
                                     fontWeight = FontWeight.Bold,
                                     color = MaterialTheme.colorScheme.onSurface
                                 )
                                 Text(
-                                    text = DriverProfileManager.email.ifBlank { "alex.rivera@example.com" },
+                                    text = DriverProfileManager.email.ifBlank { "alex.mitchell@driver.rideshare.com" },
                                     style = MaterialTheme.typography.bodySmall,
                                     color = Color(0xFF737685)
                                 )
-                                Surface(
-                                    color = Color(0xFFE8EDFF),
-                                    shape = RoundedCornerShape(4.dp),
-                                    modifier = Modifier.padding(top = 4.dp)
+                                Row(
+                                    modifier = Modifier.padding(top = 4.dp),
+                                    verticalAlignment = Alignment.CenterVertically
                                 ) {
-                                    Row(
-                                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
-                                        verticalAlignment = Alignment.CenterVertically,
-                                        horizontalArrangement = Arrangement.spacedBy(2.dp)
+                                    Surface(
+                                        color = Color(0xFFE8EDFF),
+                                        shape = RoundedCornerShape(4.dp)
                                     ) {
-                                        Icon(
-                                            Icons.Outlined.Verified,
-                                            contentDescription = null,
-                                            tint = primaryBlue,
-                                            modifier = Modifier.size(12.dp)
-                                        )
-                                        Text(
-                                            text = "Verified Member",
-                                            style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp),
-                                            color = primaryBlue,
-                                            fontWeight = FontWeight.Bold
-                                        )
+                                        Row(
+                                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
+                                            verticalAlignment = Alignment.CenterVertically,
+                                            horizontalArrangement = Arrangement.spacedBy(2.dp)
+                                        ) {
+                                            Icon(
+                                                Icons.Outlined.Verified,
+                                                contentDescription = null,
+                                                tint = primaryBlue,
+                                                modifier = Modifier.size(12.dp)
+                                            )
+                                            Text(
+                                                text = "Verified Member",
+                                                style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp),
+                                                color = primaryBlue,
+                                                fontWeight = FontWeight.Bold
+                                            )
+                                        }
                                     }
                                 }
                             }
+                            Icon(
+                                Icons.AutoMirrored.Outlined.ArrowForwardIos,
+                                contentDescription = "View Profile",
+                                tint = Color(0xFF737685),
+                                modifier = Modifier.size(14.dp)
+                            )
                         }
                     } else {
                         Column(
