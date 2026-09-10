@@ -48,7 +48,7 @@ import com.juko.app.feature.auth.presentation.signup.SignupState
 import com.juko.app.feature.auth.presentation.signup.SignupViewModel
 import com.juko.app.feature.main.MainContainerScreen
 
-class AuthScreen : Screen {
+class AuthScreen(val initialTab: Int = 0) : Screen {
     @Composable
     override fun Content() {
         val loginViewModel = getScreenModel<LoginViewModel>()
@@ -58,7 +58,7 @@ class AuthScreen : Screen {
         val signupState by signupViewModel.state.collectAsState()
         
         val navigator = LocalNavigator.currentOrThrow
-        var selectedTab by remember { mutableStateOf(0) }
+        var selectedTab by remember { mutableStateOf(initialTab) }
 
         val handleDismiss: () -> Unit = {
             val popped = if (navigator.canPop) navigator.pop() else false
@@ -82,7 +82,7 @@ class AuthScreen : Screen {
                         handleDismiss()
                     }
                     is LoginSideEffect.NavigateToSignup -> selectedTab = 1
-                    is LoginSideEffect.NavigateToForgotPassword -> navigator.push(OtpScreen())
+                    is LoginSideEffect.NavigateToForgotPassword -> navigator.push(OtpScreen(initialEmail = loginState.email))
                     is LoginSideEffect.ShowError -> { /* Show error */ }
                 }
             }

@@ -92,10 +92,10 @@ class FakeAuthRepository(
 
     override suspend fun resetPassword(email: String, otp: String, newPassword: String): Result<Unit> {
         delay(1_000)
-        return if (otp == "123456") {
+        return if (otp.isNotBlank() && otp != "0000" && otp != "000000") {
             Result.success(Unit)
         } else {
-            Result.failure(Exception("Incorrect OTP"))
+            Result.failure(Exception("Incorrect or expired OTP"))
         }
     }
 

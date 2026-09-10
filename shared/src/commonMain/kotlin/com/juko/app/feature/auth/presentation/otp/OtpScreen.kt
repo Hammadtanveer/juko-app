@@ -28,20 +28,27 @@ import cafe.adriel.voyager.navigator.currentOrThrow
 import com.juko.app.core.presentation.components.JukoButton
 import com.juko.app.core.presentation.theme.LocalSpacing
 import com.juko.app.feature.auth.presentation.auth.AuthScreen
+import com.juko.app.feature.auth.presentation.resetpassword.ResetPasswordScreen
 import com.juko.app.feature.main.MainContainerScreen
 
-class OtpScreen : Screen {
+class OtpScreen(val initialEmail: String = "") : Screen {
     @Composable
     override fun Content() {
         val viewModel = getScreenModel<OtpViewModel>()
         val state by viewModel.state.collectAsState()
         val navigator = LocalNavigator.currentOrThrow
 
+        LaunchedEffect(initialEmail) {
+            if (initialEmail.isNotBlank()) {
+                viewModel.onEvent(OtpEvent.EmailChanged(initialEmail))
+            }
+        }
+
         LaunchedEffect(Unit) {
             viewModel.effect.collect { effect ->
                 when (effect) {
                     OtpSideEffect.NavigateToNext -> {
-                        navigator.replaceAll(MainContainerScreen())
+                        navigator.push(ResetPasswordScreen(email = state.email, otp = state.otp))
                     }
                     OtpSideEffect.NavigateBack -> {
                         navigator.pop()
