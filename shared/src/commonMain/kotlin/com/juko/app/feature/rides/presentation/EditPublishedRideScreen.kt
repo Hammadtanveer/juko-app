@@ -4,6 +4,7 @@ import androidx.compose.foundation.*
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.ArrowBack
@@ -15,6 +16,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -87,6 +89,60 @@ data class EditPublishedRideScreen(val rideId: String) : Screen {
         var pricePerSeat by remember { mutableStateOf(ride.pricePerSeat.toString()) }
         var newStopInput by remember { mutableStateOf("") }
         var showAddStopDialog by remember { mutableStateOf(false) }
+
+        fun calculateDefaultDestinationPrices(
+            currentOrigin: String,
+            currentStops: List<String>,
+            baseFare: Int,
+            existingMap: Map<String, Int> = emptyMap()
+        ): Map<String, Int> {
+            val boardingPoints = listOf(currentOrigin) + currentStops.filter { it.isNotBlank() }
+            val totalPoints = boardingPoints.size
+            val map = mutableMapOf<String, Int>()
+
+            boardingPoints.forEachIndexed { index, point ->
+                val existing = existingMap[point]
+                if (existing != null && index != 0) {
+                    map[point] = existing
+                } else if (index == 0) {
+                    map[point] = baseFare
+                } else {
+                    val fraction = (totalPoints - index).toFloat() / totalPoints.toFloat()
+                    val calc = ((baseFare * fraction) / 10).toInt() * 10
+                    map[point] = calc.coerceAtLeast(50)
+                }
+            }
+            return map
+        }
+
+        var destinationPrices by remember {
+            mutableStateOf(
+                calculateDefaultDestinationPrices(
+                    currentOrigin = ride.origin,
+                    currentStops = ride.intermediateStops,
+                    baseFare = ride.pricePerSeat,
+                    existingMap = ride.destinationPrices
+                )
+            )
+        }
+
+        fun onBasePriceChanged(newBase: Int) {
+            pricePerSeat = newBase.toString()
+            val boardingPoints = listOf(origin) + intermediateStops.filter { it.isNotBlank() }
+            val totalPoints = boardingPoints.size
+            val updated = mutableMapOf<String, Int>()
+
+            boardingPoints.forEachIndexed { index, point ->
+                if (index == 0) {
+                    updated[point] = newBase
+                } else {
+                    val fraction = (totalPoints - index).toFloat() / totalPoints.toFloat()
+                    val calc = ((newBase * fraction) / 10).toInt() * 10
+                    updated[point] = calc.coerceAtLeast(50)
+                }
+            }
+            destinationPrices = updated
+        }
 
         // Route Calculation State
         var estimatedArrival by remember { mutableStateOf("") }
@@ -244,7 +300,15 @@ data class EditPublishedRideScreen(val rideId: String) : Screen {
                     Button(
                         onClick = {
                             if (newStopInput.isNotBlank()) {
-                                intermediateStops = intermediateStops + newStopInput.trim()
+                                val stopName = newStopInput.trim()
+                                val updatedStops = intermediateStops + stopName
+                                intermediateStops = updatedStops
+                                destinationPrices = calculateDefaultDestinationPrices(
+                                    currentOrigin = origin,
+                                    currentStops = updatedStops,
+                                    baseFare = pricePerSeat.toIntOrNull() ?: ride.pricePerSeat,
+                                    existingMap = destinationPrices
+                                )
                                 newStopInput = ""
                                 showAddStopDialog = false
                             }
@@ -349,7 +413,8 @@ data class EditPublishedRideScreen(val rideId: String) : Screen {
                                     departureDate = departureDate,
                                     departureTime = departureTime,
                                     totalSeats = totalSeats,
-                                    pricePerSeat = priceInt
+                                    pricePerSeat = priceInt,
+                                    destinationPrices = destinationPrices
                                 )
 
                                 navigator.pop()
@@ -407,7 +472,16 @@ data class EditPublishedRideScreen(val rideId: String) : Screen {
                                         Text("${index + 1}. $stopName", style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Medium)
                                     }
                                     IconButton(
-                                        onClick = { intermediateStops = intermediateStops.toMutableList().also { it.removeAt(index) } },
+                                        onClick = {
+                                            val updatedStops = intermediateStops.toMutableList().also { it.removeAt(index) }
+                                            intermediateStops = updatedStops
+                                            destinationPrices = calculateDefaultDestinationPrices(
+                                                currentOrigin = origin,
+                                                currentStops = updatedStops,
+                                                baseFare = pricePerSeat.toIntOrNull() ?: ride.pricePerSeat,
+                                                existingMap = destinationPrices
+                                            )
+                                        },
                                         modifier = Modifier.size(24.dp)
                                     ) {
                                         Icon(Icons.Outlined.Close, contentDescription = "Remove", tint = Color.Gray, modifier = Modifier.size(16.dp))
@@ -555,16 +629,141 @@ data class EditPublishedRideScreen(val rideId: String) : Screen {
 
                         HorizontalDivider(color = Color(0xFFF1F3FF))
 
-                        // Full Fare per Seat
-                        OutlinedTextField(
-                            value = pricePerSeat,
-                            onValueChange = { pricePerSeat = it.filter { ch -> ch.isDigit() } },
-                            label = { Text("Price per Seat (Full Fare)") },
-                            prefix = { Text("₹ ", fontWeight = FontWeight.Bold, color = primaryBlue) },
-                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                            modifier = Modifier.fillMaxWidth(),
-                            singleLine = true
-                        )
+                        // Full Fare per Seat (Base: Origin to Destination)
+                        Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                            OutlinedTextField(
+                                value = pricePerSeat,
+                                onValueChange = { input ->
+                                    val digits = input.filter { ch -> ch.isDigit() }.take(5)
+                                    pricePerSeat = digits
+                                    val intVal = digits.toIntOrNull() ?: 0
+                                    if (intVal > 0) {
+                                        onBasePriceChanged(intVal)
+                                    }
+                                },
+                                label = { Text("Price per Seat (Full Fare: $origin → $destination)") },
+                                prefix = { Text("₹ ", fontWeight = FontWeight.Bold, color = primaryBlue) },
+                                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number, imeAction = ImeAction.Done),
+                                modifier = Modifier.fillMaxWidth(),
+                                singleLine = true
+                            )
+                            Text(
+                                "Base fare from origin to final destination",
+                                style = MaterialTheme.typography.bodySmall.copy(fontSize = 11.sp),
+                                color = Color(0xFF737685)
+                            )
+                        }
+
+                        // Dynamic Pickup Points Pricing Section
+                        if (intermediateStops.isNotEmpty()) {
+                            HorizontalDivider(color = Color(0xFFF1F3FF))
+
+                            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                                Text(
+                                    "PICKUP POINT FARES (TO $destination)",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = Color(0xFF737685),
+                                    fontWeight = FontWeight.Bold
+                                )
+                                Text(
+                                    "Dynamically calculated based on route distance. You can adjust each stop's price individually:",
+                                    style = MaterialTheme.typography.bodySmall.copy(fontSize = 11.sp),
+                                    color = Color(0xFF8C8E99)
+                                )
+
+                                intermediateStops.forEach { stopName ->
+                                    val stopPrice = destinationPrices[stopName] ?: (((pricePerSeat.toIntOrNull() ?: 350) * 2 / 3) / 10 * 10).coerceAtLeast(50)
+                                    Surface(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        shape = RoundedCornerShape(10.dp),
+                                        color = Color(0xFFF8F9FD),
+                                        border = BorderStroke(1.dp, Color(0xFFE8EDFF))
+                                    ) {
+                                        Row(
+                                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp),
+                                            verticalAlignment = Alignment.CenterVertically,
+                                            horizontalArrangement = Arrangement.SpaceBetween
+                                        ) {
+                                            Column(modifier = Modifier.weight(1f)) {
+                                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                                    Text(stopName, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Bold)
+                                                    Spacer(modifier = Modifier.width(4.dp))
+                                                    Icon(Icons.Outlined.ArrowForward, contentDescription = null, modifier = Modifier.size(12.dp), tint = Color(0xFF737685))
+                                                    Spacer(modifier = Modifier.width(4.dp))
+                                                    Text(destination, style = MaterialTheme.typography.bodyMedium, color = Color(0xFF5D5F5F))
+                                                }
+                                                Text("Pickup to final destination", style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp), color = Color(0xFF737685))
+                                            }
+
+                                            Row(
+                                                verticalAlignment = Alignment.CenterVertically,
+                                                horizontalArrangement = Arrangement.spacedBy(6.dp)
+                                            ) {
+                                                IconButton(
+                                                    onClick = {
+                                                        val updated = destinationPrices.toMutableMap()
+                                                        val curr = updated[stopName] ?: stopPrice
+                                                        updated[stopName] = (curr - 20).coerceAtLeast(50)
+                                                        destinationPrices = updated
+                                                    },
+                                                    modifier = Modifier
+                                                        .size(28.dp)
+                                                        .background(Color.White, CircleShape)
+                                                        .border(1.dp, Color(0xFFC3C6D6), CircleShape)
+                                                ) {
+                                                    Icon(Icons.Outlined.Remove, contentDescription = "Decrease", modifier = Modifier.size(14.dp))
+                                                }
+
+                                                Surface(
+                                                    color = Color.White,
+                                                    shape = RoundedCornerShape(6.dp),
+                                                    border = BorderStroke(1.dp, Color(0xFFD0D7F5)),
+                                                    modifier = Modifier.width(68.dp).height(32.dp)
+                                                ) {
+                                                    Row(
+                                                        verticalAlignment = Alignment.CenterVertically,
+                                                        horizontalArrangement = Arrangement.Center,
+                                                        modifier = Modifier.padding(horizontal = 4.dp)
+                                                    ) {
+                                                        Text("₹", fontWeight = FontWeight.Bold, color = primaryBlue, fontSize = 13.sp)
+                                                        Spacer(modifier = Modifier.width(2.dp))
+                                                        BasicTextField(
+                                                            value = stopPrice.toString(),
+                                                            onValueChange = { input ->
+                                                                val num = input.filter { ch -> ch.isDigit() }.take(5).toIntOrNull() ?: 0
+                                                                val updated = destinationPrices.toMutableMap()
+                                                                updated[stopName] = num
+                                                                destinationPrices = updated
+                                                            },
+                                                            keyboardOptions = KeyboardOptions(
+                                                                keyboardType = KeyboardType.Number,
+                                                                imeAction = ImeAction.Done
+                                                            ),
+                                                            textStyle = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold),
+                                                            singleLine = true
+                                                        )
+                                                    }
+                                                }
+
+                                                IconButton(
+                                                    onClick = {
+                                                        val updated = destinationPrices.toMutableMap()
+                                                        val curr = updated[stopName] ?: stopPrice
+                                                        updated[stopName] = curr + 20
+                                                        destinationPrices = updated
+                                                    },
+                                                    modifier = Modifier
+                                                        .size(28.dp)
+                                                        .background(primaryBlue, CircleShape)
+                                                ) {
+                                                    Icon(Icons.Outlined.Add, contentDescription = "Increase", tint = Color.White, modifier = Modifier.size(14.dp))
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
 
                         // Vehicle Info
                         Row(
