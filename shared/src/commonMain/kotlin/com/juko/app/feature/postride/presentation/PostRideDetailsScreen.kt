@@ -15,7 +15,10 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import cafe.adriel.voyager.core.screen.Screen
@@ -380,11 +383,34 @@ private fun WholeCarBookingCard(state: PostRideState, onEvent: (PostRideEvent) -
                 Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                     Text("WHOLE CAR PRICE", style = MaterialTheme.typography.labelSmall, color = Color(0xFF737685))
                     OutlinedTextField(
-                        value = "₹${state.wholeCarPrice}",
-                        onValueChange = { 
-                            val newVal = it.replace(Regex("[^0-9]"), "").toIntOrNull() ?: 0
+                        value = if (state.wholeCarPrice == 0) "" else state.wholeCarPrice.toString(),
+                        onValueChange = { input ->
+                            val digitsOnly = input.filter { it.isDigit() }.take(6)
+                            val newVal = digitsOnly.toIntOrNull() ?: 0
                             onEvent(PostRideEvent.WholeCarPriceChanged(newVal))
                         },
+                        prefix = {
+                            Text(
+                                "₹ ",
+                                style = MaterialTheme.typography.bodyLarge.copy(
+                                    fontWeight = FontWeight.Bold,
+                                    color = Color(0xFF1E1E1E)
+                                )
+                            )
+                        },
+                        placeholder = {
+                            Text(
+                                "0",
+                                style = MaterialTheme.typography.bodyLarge.copy(
+                                    color = Color(0xFFB0B3C1)
+                                )
+                            )
+                        },
+                        keyboardOptions = KeyboardOptions(
+                            keyboardType = KeyboardType.Number,
+                            imeAction = ImeAction.Done
+                        ),
+                        singleLine = true,
                         modifier = Modifier.fillMaxWidth(),
                         textStyle = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.Bold),
                         shape = RoundedCornerShape(12.dp)
