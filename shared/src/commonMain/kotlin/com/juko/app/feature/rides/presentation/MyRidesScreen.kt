@@ -267,6 +267,20 @@ class MyRidesScreen(val initialTab: Int = 0) : Screen {
                                     items(requestsList) { request ->
                                         BookingRequestCard(
                                             request = request,
+                                            onPassengerClick = {
+                                                navigator.push(
+                                                    PublicUserProfileScreen(
+                                                        userName = request.passengerName,
+                                                        userAvatar = request.avatarUrl,
+                                                        role = ProfileRole.PASSENGER,
+                                                        rating = request.rating,
+                                                        ridesCount = request.ridesCount,
+                                                        boardingStop = request.pickupStation,
+                                                        seatsBooked = request.seatsRequested,
+                                                        memberSince = "Member since 2023"
+                                                    )
+                                                )
+                                            },
                                             onAccept = {
                                                 RideStateManager.acceptRequest(request.id)
                                                 coroutineScope.launch {
@@ -994,6 +1008,7 @@ private fun HistoryCardItem(
 @Composable
 private fun BookingRequestCard(
     request: BookingRequestModel,
+    onPassengerClick: () -> Unit = {},
     onAccept: () -> Unit,
     onReject: () -> Unit
 ) {
@@ -1017,6 +1032,9 @@ private fun BookingRequestCard(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Row(
+                    modifier = Modifier
+                        .clickable { onPassengerClick() }
+                        .padding(vertical = 2.dp),
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(spacing.sm)
                 ) {
@@ -1143,7 +1161,9 @@ private fun ViewPassengersDialog(
                                 horizontalArrangement = Arrangement.SpaceBetween
                             ) {
                                 Row(
-                                    modifier = Modifier.weight(1f),
+                                    modifier = Modifier
+                                        .weight(1f)
+                                        .clickable { onViewPassengerProfile(p) },
                                     verticalAlignment = Alignment.CenterVertically,
                                     horizontalArrangement = Arrangement.spacedBy(10.dp)
                                 ) {

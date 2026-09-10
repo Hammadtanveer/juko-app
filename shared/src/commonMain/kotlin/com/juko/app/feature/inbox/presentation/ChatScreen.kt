@@ -2,6 +2,7 @@ package com.juko.app.feature.inbox.presentation
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -26,6 +27,8 @@ import cafe.adriel.voyager.navigator.LocalNavigator
 import cafe.adriel.voyager.navigator.currentOrThrow
 import com.juko.app.core.presentation.components.JukoAvatar
 import com.juko.app.core.presentation.theme.LocalSpacing
+import com.juko.app.feature.profile.presentation.ProfileRole
+import com.juko.app.feature.profile.presentation.PublicUserProfileScreen
 import kotlinx.coroutines.launch
 
 data class ChatMessage(
@@ -39,7 +42,8 @@ data class ChatScreen(
     val conversationId: String,
     val participantName: String,
     val participantAvatar: String? = null,
-    val routeInfo: String = "Delhi → Seohara • Today 08:00 AM"
+    val routeInfo: String = "Delhi → Seohara • Today 08:00 AM",
+    val participantRole: ProfileRole = ProfileRole.PASSENGER
 ) : Screen {
 
     @Composable
@@ -90,13 +94,30 @@ data class ChatScreen(
                                         contentDescription = "Back"
                                     )
                                 }
-                                JukoAvatar(imageUrl = participantAvatar, size = 40.dp)
-                                Column {
-                                    Text(
-                                        text = participantName,
-                                        style = MaterialTheme.typography.titleMedium,
-                                        fontWeight = FontWeight.Bold
-                                    )
+                                Row(
+                                    modifier = Modifier
+                                        .clip(RoundedCornerShape(8.dp))
+                                        .clickable {
+                                            navigator.push(
+                                                PublicUserProfileScreen(
+                                                    userName = participantName,
+                                                    userAvatar = participantAvatar,
+                                                    role = participantRole
+                                                )
+                                            )
+                                        }
+                                        .padding(4.dp),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(spacing.sm)
+                                ) {
+                                    JukoAvatar(imageUrl = participantAvatar, size = 40.dp)
+                                    Column {
+                                        Text(
+                                            text = participantName,
+                                            style = MaterialTheme.typography.titleMedium,
+                                            fontWeight = FontWeight.Bold
+                                        )
+                                    }
                                 }
                             }
                         }

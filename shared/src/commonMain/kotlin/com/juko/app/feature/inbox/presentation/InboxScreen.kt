@@ -188,6 +188,15 @@ class InboxScreen : Screen {
                                     routeInfo = item.route
                                 )
                             )
+                        },
+                        onAvatarClick = {
+                            navigator.push(
+                                com.juko.app.feature.profile.presentation.PublicUserProfileScreen(
+                                    userName = item.participantName,
+                                    userAvatar = item.avatarUrl,
+                                    role = if (item.participantName.contains("Sharma", ignoreCase = true) || item.participantName.contains("Kapoor", ignoreCase = true) || item.participantName.contains("Rivera", ignoreCase = true)) com.juko.app.feature.profile.presentation.ProfileRole.DRIVER else com.juko.app.feature.profile.presentation.ProfileRole.PASSENGER
+                                )
+                            )
                         }
                     )
                     if (index < conversations.size - 1) {
@@ -249,7 +258,8 @@ class InboxScreen : Screen {
 @Composable
 private fun ConversationRow(
     item: ConversationItem,
-    onClick: () -> Unit
+    onClick: () -> Unit,
+    onAvatarClick: () -> Unit = {}
 ) {
     val spacing = LocalSpacing.current
     val primaryBlue = Color(0xFF0052CC)
@@ -262,11 +272,13 @@ private fun ConversationRow(
         verticalAlignment = Alignment.Top,
         horizontalArrangement = Arrangement.spacedBy(14.dp)
     ) {
-        // Avatar
-        JukoAvatar(
-            imageUrl = item.avatarUrl,
-            size = 56.dp
-        )
+        // Avatar (clickable to view public profile)
+        Box(modifier = Modifier.clickable { onAvatarClick() }) {
+            JukoAvatar(
+                imageUrl = item.avatarUrl,
+                size = 56.dp
+            )
+        }
 
         // Message Details
         Column(
